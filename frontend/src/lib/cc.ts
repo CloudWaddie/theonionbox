@@ -24,6 +24,7 @@ export interface CCNode {
   connections?: number
   streams?: number
   bw?: BwSample[]
+  health?: { status: 'ok' | 'warn' | 'fail'; issues: string[] } | null
 }
 
 export interface CCList { tick: number; readonly: boolean; nodes: CCNode[] }

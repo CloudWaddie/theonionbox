@@ -160,6 +160,8 @@ The _Bandwidth_ chart displays the traffic as reported by the Tor node. The butt
 
 _CPU_ (including a bar for each core) and _Memory_ show the load of the machine the box runs on. They are only available if the box reaches the Tor node via a local `ControlSocket` or a loopback `ControlPort` (`127.0.0.1`) - i.e. if both run on the same device; a node reached over the network or via a hidden service gets neither (nor the _Host_ panel). If the host provides a temperature sensor, the temperature is charted as well. _Up since_ (the latest reboot) and _Temperature_ are only available on supported operating systems.
 
+_Health_ (relays and bridges, not clients) runs a few checks every minute: Tor version, reachability of the `ORPort`, the server descriptor, accounting / hibernation, uptime, the consensus flags of a relay (_Running_, _Valid_, _Fast_, _Stable_) and the `ContactInfo`, which is compared with what the network publishes. The overall state is _Healthy_, _Needs attention_ or _Problem_. In the ControlCenter, a card shows the open issues of its node.
+
 If the Tor node has an _Accounting_ limit configured, the panel _Accounting_ shows how much of the limit is used, the status (_awake_ or hibernating) and when the interval ends.
 
 ---
@@ -193,6 +195,8 @@ The page _Node_ displays what the Tor node knows about itself and its configurat
 </picture>
 
 _Tor_ lists the version (and whether it is the latest recommended one), the version status, process id, user, mode, nickname, fingerprint and flags of the node. The latest versions are read from the Tor node itself.
+
+_Bridge_ is shown for nodes running with `BridgeRelay 1`. It lists the `ORPort` / `ExtORPort`, the pluggable transports with their listen addresses (from `ServerTransportPlugin` / `ServerTransportListenAddr`), the distribution method and the hashed fingerprint. If the box runs on the same machine as the bridge, it shows the bridge line Tor prepared in `pt_state/` as well. _Clients_ charts the users seen per country (`status/clients-seen`); Tor collects these only after the bridge ran for about a day.
 
 _Hidden services_ displays the configuration parameters for the hidden service(s) of the Tor node monitored. It is only available if at least one hidden service is configured on this Tor node.
 

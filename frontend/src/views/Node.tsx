@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
-import type { Overview } from '@/lib/types'
+import type { BridgeInfo, Overview } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Empty, KeyValues, Panel } from '@/components/common'
+import { BridgePanel } from '@/views/Health'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 
 const STATUS_VARIANT: Record<string, 'success' | 'destructive' | 'secondary'> = {
   recommended: 'success', 'new in series': 'success', new: 'success', obsolete: 'destructive', old: 'destructive', unrecommended: 'destructive',
 }
 
-export function NodeView({ overview }: { overview: Overview }) {
+export function NodeView({ overview, bridge }: { overview: Overview; bridge: BridgeInfo | null }) {
   const t = overview.tor
   const [q, setQ] = useState('')
   const config = useMemo(() => overview.config.filter((c) => (c.name + ' ' + c.values.join(' ')).toLowerCase().includes(q.toLowerCase())), [overview.config, q])
@@ -30,6 +31,8 @@ export function NodeView({ overview }: { overview: Overview }) {
           ['Flags', t.flags.length ? <div className="flex flex-wrap gap-1.5">{t.flags.map((f) => <Badge key={f} variant="secondary">{f}</Badge>)}</div> : null],
         ]} />
       </Panel>
+
+      {bridge && <BridgePanel bridge={bridge} />}
 
       {overview.hidden_services.length > 0 && (
         <Panel title="Hidden services" description={`${overview.hidden_services.length} configured`}>

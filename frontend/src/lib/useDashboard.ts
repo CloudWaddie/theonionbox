@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { AccStats, GenSample, History, LiveResponse, LogEvent, MonSample, Overview } from './types'
+import type { AccStats, HealthResponse, GenSample, History, LiveResponse, LogEvent, MonSample, Overview } from './types'
 import { decodeEntities } from './format'
 
 export interface LiveState {
@@ -127,4 +127,26 @@ export function useDashboard(overview: Overview, mock?: () => LiveResponse) {
   }, [mock])
 
   return { ...state, setLevel }
+}
+
+// bridge info & health checks: slow data, once a minute
+export function useHealth(mock?: HealthResponse): HealthResponse | null {
+  const [data, setData] = useState<HealthResponse | null>(mock ?? null)
+
+  useEffect(() => {
+    if (mock) return
+    let stop = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const load = async () => {
+      try {
+        const res = await fetch('api/health', { cache: 'no-store', credentials: 'same-origin' })
+        if (res.ok && !stop) setData(await res.json())
+      } catch { /* try again next round */ }
+      if (!stop) timer = setTimeout(load, 60_000)
+    }
+    load()
+    return () => { stop = true; if (timer) clearTimeout(timer) }
+  }, [mock])
+
+  return data
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, FileText, Globe2, LayoutGrid, LogOut, Server } from 'lucide-react'
 import type { Overview, PageState } from '@/lib/types'
-import { fetchOverview, useDashboard } from '@/lib/useDashboard'
+import { fetchOverview, useDashboard, useHealth } from '@/lib/useDashboard'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -13,7 +13,7 @@ import { LogsView } from '@/views/Logs'
 import { LoginView } from '@/views/Login'
 import { ErrorView } from '@/views/ErrorPage'
 import { ControlCenterView } from '@/views/ControlCenter'
-import { installMockApi, makeMock, mockOverview } from '@/mock'
+import { installMockApi, makeMock, mockHealth, mockOverview } from '@/mock'
 
 const params = new URLSearchParams(location.search)
 const isMock = params.has('mock')
@@ -72,6 +72,7 @@ function DashboardLoader() {
 function Dashboard({ overview }: { overview: Overview }) {
   const mock = useMemo(() => (isMock ? makeMock() : undefined), [])
   const live = useDashboard(overview, mock)
+  const health = useHealth(isMock ? mockHealth : undefined)
   const hasNetwork = overview.sections.includes('network') || !!live.ooBw || !!live.ooWeights
   const [tab, setTab] = useState(() => location.hash.slice(1) || 'overview')
   const { header, tor } = overview
@@ -112,9 +113,9 @@ function Dashboard({ overview }: { overview: Overview }) {
             <TabsTrigger value="node"><Server className="mr-1.5 size-4" />Node</TabsTrigger>
             <TabsTrigger value="logs"><FileText className="mr-1.5 size-4" />Messages</TabsTrigger>
           </TabsList>
-          <TabsContent value="overview"><OverviewView overview={overview} live={live} /></TabsContent>
+          <TabsContent value="overview"><OverviewView overview={overview} live={live} health={health?.health ?? null} /></TabsContent>
           {hasNetwork && <TabsContent value="network"><NetworkView network={overview.network} live={live} /></TabsContent>}
-          <TabsContent value="node"><NodeView overview={overview} /></TabsContent>
+          <TabsContent value="node"><NodeView overview={overview} bridge={health?.bridge ?? null} /></TabsContent>
           <TabsContent value="logs"><LogsView live={live} setLevel={live.setLevel} /></TabsContent>
         </Tabs>
 

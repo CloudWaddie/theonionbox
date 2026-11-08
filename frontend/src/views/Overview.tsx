@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Cpu, MemoryStick, Network, Waypoints } from 'lucide-react'
 import type { LiveState } from '@/lib/useDashboard'
-import type { Overview as OverviewData } from '@/lib/types'
+import type { HealthInfo, Overview as OverviewData } from '@/lib/types'
 import { formatBytes, formatPercent, formatRate } from '@/lib/format'
 import { Legend, TimeChart, type ChartSeries } from '@/components/charts'
 import { Empty, KeyValues, Panel, Stat } from '@/components/common'
+import { HealthPanel } from '@/views/Health'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const UP: ChartSeries = { key: 'up', label: 'Upload', color: 'hsl(var(--chart-1))' }
@@ -19,7 +20,7 @@ const INTERVAL_LABEL: Record<string, string> = {
   Ch: '12 hours',
 }
 
-export function OverviewView({ overview, live }: { overview: OverviewData; live: LiveState }) {
+export function OverviewView({ overview, live, health }: { overview: OverviewData; live: LiveState; health: HealthInfo | null }) {
   const intervals = Object.keys(overview.intervals)
   const [interval, setInterval] = useState('1s')
 
@@ -45,6 +46,8 @@ export function OverviewView({ overview, live }: { overview: OverviewData; live:
         <Stat label="Circuits" icon={<Waypoints />} value={live.transport.circ} hint={`${live.transport.stream} streams`} />
         <Stat label="OR connections" icon={<Network />} value={live.transport.or} hint="to other relays" />
       </div>
+
+      {health && <HealthPanel health={health} />}
 
       <Panel
         title="Bandwidth"

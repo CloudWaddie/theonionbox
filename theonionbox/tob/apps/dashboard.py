@@ -106,6 +106,11 @@ class Dashboard(BaseApp):
                        callback=self.get_overview,
                        **config)
 
+        self.app.route('/<session>/api/health',
+                       method='GET',
+                       callback=self.get_health,
+                       **config)
+
         self.app.route('/<session>/data.html',
                        method='POST',
                        callback=self.post_data,
@@ -515,6 +520,35 @@ class Dashboard(BaseApp):
         response.content_type = 'application/json'
         response.set_header('Cache-Control', 'no-store')
         return json.dumps(overview)
+
+    def get_health(self, session):
+        # bridge info & health checks; the page polls this once a minute
+        try:
+            node = self.nodes[session['node']]
+            tor = node.controller
+        except Exception:
+            raise HTTPError(404)
+
+        from .. import api, health
+
+        oo_details = None
+        if node.onionoo is not None:
+            oo_details = node.onionoo.details
+
+        accounting = None
+        try:
+            accounting = tor.get_accounting_stats()
+        except Exception:
+            pass
+
+        latest_stable, _ = api.latest_tor_versions(tor)
+
+        response.content_type = 'application/json'
+        response.set_header('Cache-Control', 'no-store')
+        return json.dumps({
+            'health': health.health(tor, oo_details, accounting, latest_stable),
+            'bridge': health.bridge(tor, oo_details),
+        })
 
     def post_data(self, session):
 
