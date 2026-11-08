@@ -236,7 +236,7 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
 
 const COOKIE_HINT =
   "For nodes using CookieAuthentication on another machine: the content of Tor's control_auth_cookie as hex. " +
-  "On the node run  od -An -v -tx1 /var/lib/tor/control_auth_cookie | tr -d ' \\n'  (path as in your DataDirectory). " +
+  "On the node run  od -An -v -tx1 /run/tor/control.authcookie | tr -d ' \\n'  (Debian / Ubuntu package; otherwise the control_auth_cookie in your DataDirectory). " +
   'Not needed if the Box can read that file itself.'
 
 const CONTROL_HELP = {
