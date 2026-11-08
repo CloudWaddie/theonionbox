@@ -3,7 +3,8 @@
 
 [TheOnionBox]
 ## Address of your Onion Box:
-## This defaults to 127.0.0.1 to listen *only* on the local loopback interface.
+## This defaults to 0.0.0.0, which listens on all interfaces.
+## Use 127.0.0.1 to listen *only* on the local loopback interface.
 # host = 127.0.0.1
 ## If 'localhost', connections are limited to the local system.
 # host = localhost
@@ -29,8 +30,8 @@
 # base_path = /theonionbox
 
 ## The acceptable duration in seconds between two communication events of a client to the Box.
-## If this duration is exceeded, the Box will expire the session. Default is 300 (seconds).
-# session_ttl = 300
+## If this duration is exceeded, the Box will expire the session. Default is 30 (seconds).
+# session_ttl = 30
 ## Note: This is applicable for login procedures as well as monitoring activities.
 ## Note: The minimum duration accepted == 30, max == 3600. Values will be forced into that range.
 

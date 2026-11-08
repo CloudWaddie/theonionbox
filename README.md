@@ -1,21 +1,18 @@
 # The Onion Box
-[![GitHub tag](https://img.shields.io/github/tag/ralphwetzel/theonionbox.svg?style=flat-square&label=GitHub)](https://github.com/ralphwetzel/theonionbox/releases/latest)
-![Github commits (since latest release)](https://img.shields.io/github/commits-since/ralphwetzel/theonionbox/latest.svg?style=flat-square)
-[![License](https://img.shields.io/pypi/l/theonionbox.svg?style=flat-square)](https://github.com/ralphwetzel/theonionbox/blob/master/LICENSE)
-
-[![Latest PyPi](https://img.shields.io/pypi/v/theonionbox.svg?style=flat-square)](https://pypi.org/project/theonionbox)
-![Supported Python versions](https://img.shields.io/pypi/pyversions/theonionbox.svg?style=flat-square)
-![Status](https://img.shields.io/pypi/status/theonionbox.svg?style=flat-square)
+[![GitHub tag](https://img.shields.io/github/tag/CloudWaddie/theonionbox.svg?style=flat-square&label=GitHub)](https://github.com/CloudWaddie/theonionbox/releases/latest)
+![Github commits (since latest release)](https://img.shields.io/github/commits-since/CloudWaddie/theonionbox/latest.svg?style=flat-square)
+[![License](https://img.shields.io/github/license/CloudWaddie/theonionbox.svg?style=flat-square)](https://github.com/CloudWaddie/theonionbox/blob/master/LICENSE)
+![Python 3.9+](https://img.shields.io/badge/python-3.9%20to%203.13-blue.svg?style=flat-square)
 
 ---
-### The Onion Box v19: Preliminary documentation
+### The Onion Box
 > This is a maintained fork of [ralphwetzel/theonionbox](https://github.com/ralphwetzel/theonionbox), brought up to date for current Python and Tor releases and equipped with a new web interface.
 
 ## The ControlCenter
 
 This latest version of The Onion Box introduces some changes of relevance:
-* The current versioning scheme was dropped in preference for [Calendar Versioning](www.calver.org). Thus v19.2 will become the successor of v4.3.1.
-* This fork requires Python 3.9 or later (tested up to 3.13) and Tor 0.4.x. The Onion Box v19.2 requires Python 3.6 or Python 3.7. If you need to operate with Python2, you have to stay with The Onion Box v4.3.1.
+* The current versioning scheme was dropped in preference for [Calendar Versioning](www.calver.org). Thus v19.2 became the successor of v4.3.1; this fork continues at v20.2.
+* This fork requires Python 3.9 or later (tested up to 3.13) and Tor 0.4.x. Earlier releases ran on older Python versions; if you need to operate with Python 2, you have to stay with The Onion Box v4.3.1.
 * The web interface was rebuilt from scratch (React, Tailwind CSS and shadcn/ui). It comes in a light and a dark theme - following your system, switchable in the page header - and works on phones as well.
 * In addition to the dashboard for a single Tor node, The Onion Box provides a ControlCenter mode to monitor a(ny) number of Tor nodes - relays, bridges and clients - in parallel. That's how it looks like:
 
@@ -87,7 +84,6 @@ Above that, _The Onion Box_ is able to display Tor network status protocol data 
     - [Location](#location)
     - [Structure](#structure)
 - [Command line parameters](#command-line-parameters)
-    - [Deprecated parameters](#deprecated-parameters)
 - [Advanced Operations: Authentication](#advanced-operations-authentication)
     - [Cookie Authentication](#cookie-authentication)
     - [Password Authentication](#password-authentication)
@@ -382,18 +378,19 @@ To **later** close the Virtual Environment, issue a `deactivate` command:
 ```
 
 ### Installation
-The latest release package of [_The Onion Box_](https://testpypi.python.org/pypi/theonionbox/) is always available in [PyPi](https://testpypi.python.org), the Python Package Index. You can download and install it with `pip install theonionbox`. Please ensure, that you're doing this within the virtual environment created for your box; (re-)activate it if necessary with:
+_The Onion Box_ of this fork is **not** published on PyPI - `pip install theonionbox` would install the original project. Install it straight from GitHub instead. Please ensure, that you're doing this within the virtual environment created for your box; (re-)activate it if necessary with:
 ```
 ~/theonionbox $ source bin/activate
-(theonionbox) ~/theonionbox $ pip install theonionbox
+(theonionbox) ~/theonionbox $ pip install git+https://github.com/CloudWaddie/theonionbox.git
 ```
+The web interface ships pre-built within the repository, so there is no need for Node.js.
 Along with the files for _The Onion Box_, all additional [dependencies](#dependencies) will be installed into the virtual environment you created. No changes will be made to _The World Outside_ and there is no need to operate this `pip` command as `root`.
 > Be aware that it might need some minutes to download and compile the requested packages and all their dependencies.
 
 Please ensure that the installation process is performed without any error. You should read a line like
 ```
 [...]
-Successfully installed PySocks-1.6.8 apscheduler-2.1.2 bottle-0.12.13 certifi-2017.11.5 [...]
+Successfully installed [...] theonionbox-20.2
 (theonionbox) ~/theonionbox $
 ```
 as the final message.
@@ -432,7 +429,7 @@ Type `theonionbox` to launch your box for the first time:
 ```
 (theonionbox) ~/theonionbox $ theonionbox
 ```
-Your box will perform some steps to initialize and then wait for connections at `http://127.0.0.1:8080`. A typical startup sequence of a fresh installation of _The Onion Box_ looks like this:
+Your box will perform some steps to initialize and then wait for connections on port 8080 (e.g. at `http://127.0.0.1:8080`). A typical startup sequence of a fresh installation of _The Onion Box_ looks like this:
 
 ```
 16:09:07.688 The Onion Box: WebInterface to monitor Tor node operations.
@@ -561,38 +558,21 @@ Therefore no configuration be necessary - if you are operating your node at `Con
 For all other situations, you may configure the way of operation of your box via a configuration file.
 
 ### Location
-If you do not provide a dedicated `--config=<path>` to define the path to a configuration file via the [command line](#command-line-parameters), _The Onion Box_ checks for availability of a file named `theonionbox.cfg` at one of the following locations (in the given order):
-* if launched from a Python Virtual Environment, in a directory named `config` below the root directory of the virtual environment: `$VIRTUAL_ENV/config/theonionbox.cfg`
-* in the same directory as `theonionbox.py`: `./theonionbox.cfg`
-* in a directory named `config` below the directory of `theonionbox.py`: `./config/theonionbox.cfg`
-
-If you've saved your configuration file at one of those locations, yet your box still states `No (valid) configuration file found.`, you might use the [-d command line parameter](#command-line-parameters) to enable the _Debug_ mode. This will trigger _The Onion Box_ to emit the absolute search paths it's checking for the configuration files:
+The configuration file is **not** searched for automatically: tell your box where it is via `--config=<path>` (`-c`) on the [command line](#command-line-parameters). The Docker image does so for you with `/etc/theonionbox/theonionbox.cfg`.
 
 ```
-(theonionbox) ~/theonionbox $ theonionbox -d
-        17:57:10.551 The Onion Box: WebInterface to monitor Tor node operations.
-[...]
-[DEBUG] 17:57:10.590 theonionbox.py[391]: No configuration file found at '/home/pi/theonionbox/config/theonionbox.cfg'
-[DEBUG] 17:57:10.594 theonionbox.py[391]: No configuration file found at '/home/pi/theonionbox/lib/python2.7/site-packages/theonionbox/theonionbox.cfg'
-[DEBUG] 17:57:10.596 theonionbox.py[391]: No configuration file found at '/home/pi/theonionbox/lib/python2.7/site-packages/theonionbox/config/theonionbox.cfg'
+(theonionbox) ~/theonionbox $ theonionbox -c config/theonionbox.cfg
 ```
 
 ### Structure
-The configuration file of _The Onion Box_ is a simple text file "ini-style". A template of that file is available as [`./config/theonionbox.example`](./theonionbox/config/theonionbox.example) in the directory of `theonionbox.py`.
-
-#### Section `[config]`
-```
-[config]
-## v4.0 will only support version = 2
-protocol = 2
-```
-_The Onion Box_ as of version 4 only supports configuration file protocol `2`.
+The configuration file of _The Onion Box_ is a simple text file "ini-style". A template of that file is available as [`theonionbox/config/theonionbox.example`](./theonionbox/config/theonionbox.example); a pip installation copies it to the `config` directory of your virtual environment.
 
 #### Section `[TheOnionBox]`
 ```
 [TheOnionBox]
 ## Address of your Onion Box:
-## This defaults to 127.0.0.1 to listen *only* on the local loopback interface.
+## This defaults to 0.0.0.0, which listens on all interfaces.
+## Use 127.0.0.1 to listen *only* on the local loopback interface.
 # host = 127.0.0.1
 ## If 'localhost', connections are limited to the local system.
 # host = localhost
@@ -618,8 +598,8 @@ _The Onion Box_ as of version 4 only supports configuration file protocol `2`.
 # base_path = /theonionbox
 
 ## The acceptable duration in seconds between two communication events of a client to the Box.
-## If this duration is exceeded, the Box will expire the session. Default is 300 (seconds).
-# session_ttl = 300
+## If this duration is exceeded, the Box will expire the session. Default is 30 (seconds).
+# session_ttl = 30
 ## Note: This is applicable for login procedures as well as monitoring activities.
 ## Note: The minimum duration accepted == 30, max == 3600. Values will be forced into that range.
 
@@ -665,7 +645,7 @@ These are the parameters to connect and authenticate to your "primary" (or first
 # control = socket
 ## => via a ControlPort (define additionally 'host' & 'port' parameter):
 # control = port
-## => via a Proxy (define a proxy via the [Proxy] section and set 'host' to an address reachable through this proxy):
+## => via a Proxy (define a proxy via the [TorProxy] section and set 'host' to an address reachable through this proxy):
 # control = proxy
 ## Note: This defaults to control = port if not defined!
 
@@ -797,7 +777,7 @@ For each Tor node you intend to monitor - **but not** for the  "primary" node co
 # control = socket
 ## => via a ControlPort (define additionally 'host' & 'port' parameter):
 # control = port
-## => via a Proxy (define a proxy via the [Proxy] section and set 'host' to an address reachable through this proxy):
+## => via a Proxy (define a proxy via the [TorProxy] section and set 'host' to an address reachable through this proxy):
 # control = proxy
 ## Note: There is no default setting. If not defined, this section (and thus the node) will be ignored.
 
@@ -843,29 +823,22 @@ For each Tor node you intend to monitor - **but not** for the  "primary" node co
 _The Onion Box_ may be configured by a small number of commandline parameters:
 
 ```
--c <path> | --config=<path>: Provide path & name of configuration file.
-                             Note: This is only necessary when NOT using
-                             './theonionbox.cfg' or './config/theonionbox.cfg'.
+-c <path> | --config=<path>: Read the configuration from this file.
+-x <path> | --controlcenter=<path>: Enable ControlCenter mode; the nodes
+                                    are read from and stored in this file.
 -d | --debug: Switch on DEBUG mode.
 -t | --trace: Switch on TRACE mode (which is more verbose than DEBUG mode).
--h | --help: Prints this information.
 -l <directory> | --log=<directory>: Define directory to additionally
                                     emit log messages to. Please assure
                                     correct access privileges!
-
+--version: Prints the version.
+--help: Prints this information (`theonionbox box --help`, `tor --help`
+        and `proxy --help` list the options that mirror the configuration file).
 ```
 
 `DEBUG` mode only affects the _Box_' core code. It forwards the debug messages of _The Onion Box_ to the console or the log file. If you encounter any problems, you may enable `DEBUG` mode to check what's happing.
 
 `TRACE` additionally forwards debug level messages of `bottle` (the WSGI micro web-framework used by the _Box_) and trace level messages of `stem` (the Tor controller library). This mode is really noisy ... and the ultimate lever to follow the operation of _The Onion Box_ in case of problems.
-
-### Deprecated parameters
-Prior to version 4.1.3 you had to define the command line parameter
-```
--m <mode> | --mode=<mode>
-```
-to `Configure The Box to run as 'service'`. This parameter meanwhile is obsolete. Using `-m` or `--mode` will trigger a `DeprecationWarning`.
-
 
 ## Advanced Operations: Authentication
 Monitoring a Tor node in the end just demands two prerequisites: Access to an interface to control the node and a way to authenticate against the node. Therefore _Advanced Operations_ is all about the different ways to provide a [control interface](#advanced-operations-control-interface) and the different ways of **authentication**.
@@ -878,7 +851,7 @@ By default (defined in the configuration file `torrc.default` (see the [Tor manu
 According to the Tor manual, when using _Cookie Authentication_, the Tor node allows "connections on the control port when the connecting process knows the contents of a file named `control_auth_cookie`, which Tor will create in its data directory".  
 This implies that your box needs to be able to read this file - which is the case if _The Onion Box_ runs on the same system that hosts the Tor node (or shares a volume with it). To access `control_auth_cookie`, your box needs to have the correct privileges. This can be achieved most easily by running it as the same user as the Tor node (which e.g. is _debian-tor_ on Debian systems):
 ```
-sudo -u debian-tor python theonionbox.py
+sudo -u debian-tor theonionbox
 ```
 
 For a node on **another machine** (monitored by the [ControlCenter](#the-controlcenter)) you can paste the content of the cookie into the _Control cookie_ field of the node dialog. Print it on the node with
@@ -932,7 +905,7 @@ If you mis-configure a `ControlPort`, you might endanger the security of your sy
 By default (defined in the configuration file `torrc.default` (see the [Tor manual](https://www.torproject.org/docs/tor-manual.html.en))) a Tor node offers a `ControlSocket` as standard controlling interface (at least on Unix and Unix-like systems). This default socket is e.g. defined as `/var/run/tor/control`.
 
 A `ControlSocket` can only been accessed locally; therefore you need to install _The Onion Box_ on the same system that hosts the Tor node you intend to monitor.
-To access a `ControlSocket` the process trying to connect needs to have the correct privileges. This can be achieved most easily by running your box as the same user as the Tor node (which e.g. is _debian-tor_ on Debian systems): `sudo -u debian-tor python theonionbox.py`
+To access a `ControlSocket` the process trying to connect needs to have the correct privileges. This can be achieved most easily by running your box as the same user as the Tor node (which e.g. is _debian-tor_ on Debian systems): `sudo -u debian-tor theonionbox`
 
 To instruct your box to connect to a local ControlSocket define the following parameters:
 ```
@@ -1170,7 +1143,7 @@ Let's assume, you've created the virtual environment for your _Onion Box_ at `/u
 
 * Change to that directory: `cd /usr/home/pi/theonionbox`
 * Change to the `FreeBSD` directory within `service`: `cd service/FreeBSD`
-* Within this directory you'll find the script [`theonionbox.sh`](https://github.com/ralphwetzel/theonionbox/blob/master/FreeBSD/theonionbox.sh) prepared to launch your OnionBox as a background service.
+* Within this directory you'll find the script [`theonionbox.sh`](https://github.com/CloudWaddie/theonionbox/blob/master/FreeBSD/theonionbox.sh) prepared to launch your OnionBox as a background service.
 * Ensure that you set the path to the OnionBox files and the user to run the service as intended. Therefore open the file with an editor (here we use _nano_): `nano theonionbox.sh`
 * According to our assumptions above, set line 31 to `: ${theonionbox_dir="/usr/home/pi/theonionbox"}`.
 * If necessary, you may define commandline arguments via `${theonionbox_start_args}` (as shown in the examples around line 35)
@@ -1494,6 +1467,8 @@ Enjoy!
 ## Acknowledgments
 Day by day it is a repetitive pleasure to learn from uncountable people who share their knowledge, their time and their work with the world. This section shall express my gratefulness to those who supported me solving issues I encountered during the last years. **Thank You!**
 
+[CloudWaddie](https://github.com/CloudWaddie) - for continuing the development of _The Onion Box_ and for hosting multiple Tor relays and bridges.
+
 Łukasz Dziedzic (and his friends) - for creating and publishing the great [Lato](https://latofonts.com) font family.
 
 [SC. Phillips](http://www.scphillips.com) - whose [Blog](http://blog.scphillips.com/posts/2013/07/getting-a-python-script-to-run-in-the-background-as-a-service-on-boot/) gave a perfect starting point when I tried to operate _The Onion Box_ as a background service.
@@ -1517,6 +1492,8 @@ The [JetBrains](http://www.jetbrains.com) team - for their support to _The Onion
 </table>
 
 Olaf - who provided great support and endless patience while testing the `pip` installation system and its dedicated documentation.
+
+[Ralph Wetzel](https://github.com/ralphwetzel) - the author of the original _The Onion Box_ this fork is built upon.
 
 [Rupert Edwards](https://github.com/ruped24) - who contributed the Docker support setup.
 
