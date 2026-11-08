@@ -388,7 +388,7 @@ setup(
                                       package_dir=package_dir),
     #package_data = package_data,
     data_files=generate_data_files(data_files),
-    url='https://github.com/ralphwetzel/theonionbox',
+    url='https://github.com/CloudWaddie/theonionbox',
     license='MIT',
     author='Ralph Wetzel',
     author_email='theonionbox@gmx.com',
