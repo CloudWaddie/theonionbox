@@ -1,14 +1,4 @@
-"""
-Optional access protection for the whole Box (dashboard, ControlCenter, static files).
-
-The Box itself has no login: without a gate anyone who can reach it may watch - and in ControlCenter mode edit -
-the monitored nodes. Behind a reverse proxy (e.g. Coolify / Traefik) this gate is the simplest safe default.
-
-It is a cookie based login (not HTTP Basic auth) on purpose: the Box's own Tor login uses the 'Authorization'
-header, which a proxy-level or browser-level Basic auth would clash with.
-
-Enable with `--access_password` / env `TOB_ACCESS_PASSWORD` / `access_password` in the [TheOnionBox] config section.
-"""
+"""password gate for the whole box. cookie login on purpose: the tor logins use the Authorization header, basic auth would clash"""
 
 import hashlib
 import hmac
@@ -52,14 +42,14 @@ button{{width:100%;height:40px;margin-top:16px;font:inherit;font-weight:500;colo
 
 
 def _safe_next(value: str) -> str:
-    """Only ever redirect to a path on this host."""
+    # no redirects off-site
     if not value or not value.startswith('/') or value.startswith('//') or '\\' in value:
         return '/'
     return value
 
 
 class HealthCheck:
-    """`/__health` answers 'ok' - for Docker / Coolify health checks. Independent of sessions and of the gate."""
+    """/__health for docker / coolify"""
 
     def __init__(self, app):
         self.app = app
@@ -82,8 +72,6 @@ class AccessGate:
         self._now = now
         self._failures = {}
 
-    # --- tokens -----------------------------------------------------------------------------------------------
-
     def _sign(self, expiry: int) -> str:
         return hmac.new(self._key, str(expiry).encode(), hashlib.sha256).hexdigest()
 
@@ -97,8 +85,6 @@ class AccessGate:
             return int(expiry) > self._now() and hmac.compare_digest(signature, self._sign(int(expiry)))
         except (ValueError, AttributeError):
             return False
-
-    # --- request helpers ----------------------------------------------------------------------------------------
 
     @staticmethod
     def _client(environ) -> str:
@@ -126,8 +112,6 @@ class AccessGate:
         self._failures[client] = hits
         return len(hits) >= MAX_FAILURES
 
-    # --- responses ------------------------------------------------------------------------------------------------
-
     @staticmethod
     def _respond(start_response, status, body=b'', headers=None):
         h = [('Content-Length', str(len(body))), ('Cache-Control', 'no-store')]
@@ -143,8 +127,6 @@ class AccessGate:
         ).encode('utf-8')
         return self._respond(start_response, status, body, [('Content-Type', 'text/html; charset=utf-8'),
                                                             ('X-Frame-Options', 'DENY')])
-
-    # --- WSGI -------------------------------------------------------------------------------------------------------
 
     def __call__(self, environ, start_response):
         path = environ.get('PATH_INFO', '/')
@@ -187,7 +169,7 @@ class AccessGate:
         given = form.get('password', [''])[0].encode('utf-8')
         next_url = _safe_next(form.get('next', [next_url])[0])
 
-        # compare digests: constant time and independent of the password length
+        # hash both so the compare doesn't leak the length
         if not hmac.compare_digest(hashlib.sha256(given).digest(), hashlib.sha256(self._password).digest()):
             self._failures.setdefault(client, []).append(self._now())
             return self._login_page(start_response, next_url, 'Wrong password.', '401 Unauthorized')

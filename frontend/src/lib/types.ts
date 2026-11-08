@@ -66,7 +66,7 @@ export interface Overview {
   transport: { or: number; circ: number; stream: number }
 }
 
-/** GET api/state: which page the Box wants to show for this session. */
+// GET api/state
 export type PageState =
   | { page: 'login'; auth: 'digest' | 'basic'; proceed_to: string; label: string | null; box: string; cc: boolean }
   | { page: 'error'; message: string; box: string; cc: boolean }

@@ -1,13 +1,7 @@
 import { md5 } from 'js-md5'
 
-/**
- * The Box's login handshake (see tob/authenticate.py):
- *   1. GET login.html            -> 401 + `WWW-Authenticate: TheOnionBox realm=..., nonce=..., opaque=...`
- *   2. GET login.html + Authorization -> 200, body = id of the new, authenticated session
- * 'digest': the password never leaves the browser, only a hash of it (the Box knows the password and verifies it).
- * 'basic':  the Box forwards the password to Tor.
- * Step 2 has to follow step 1 within 1.5 seconds.
- */
+// login handshake, see tob/authenticate.py: GET login.html -> 401 + challenge, then GET again with Authorization -> body is the new session id.
+// digest sends only a hash, basic sends the password (the box forwards it to tor). second request has to come within 1.5s
 
 export class LoginFailed extends Error {}
 

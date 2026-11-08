@@ -51,7 +51,7 @@ export function Footer({ version }: { version: string }) {
   )
 }
 
-/** Centered card used by the login & error pages. */
+// login + error pages
 export function CenterCard({ children, version }: { children: ReactNode; version?: string }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">

@@ -30,7 +30,6 @@ export function Panel({ title, description, action, children, className }: { tit
   )
 }
 
-/** Label / value rows, the dashboard's bread and butter. */
 export function KeyValues({ rows }: { rows: [string, ReactNode][] }) {
   const shown = rows.filter(([, v]) => v !== null && v !== undefined && v !== '')
   return (

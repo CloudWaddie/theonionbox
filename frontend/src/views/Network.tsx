@@ -13,7 +13,7 @@ function rowsOf(h: History | null | undefined, period: string, abs = false) {
   return (h?.[period] ?? []).map(([t, v]) => ({ t, v: v == null ? null : abs ? Math.abs(v) : v }))
 }
 
-/** Join several [t, value] series on their timestamps. */
+// merge [t, value] series by timestamp
 function join(period: string, parts: Record<string, { h: History | null | undefined; scale?: number; abs?: boolean }>) {
   const byTime = new Map<number, Record<string, number | null> & { t: number }>()
   for (const [key, { h, scale = 1, abs }] of Object.entries(parts)) {

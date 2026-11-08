@@ -1,6 +1,6 @@
 import type { History, LiveResponse, Overview } from './lib/types'
 
-/** Demo data for `?mock=1` - lets the UI be developed / screenshotted without a Tor node. */
+// demo data for ?mock=1, so the ui works without a tor node
 export const mockOverview: Overview = {
   token: 'mock',
   box: { version: '20.2 (demo)' },
