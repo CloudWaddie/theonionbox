@@ -158,7 +158,7 @@ _Upload_ and _Download_ show the current rate and the total, _Circuits_ and _OR 
 
 The _Bandwidth_ chart displays the traffic as reported by the Tor node. The buttons on the right switch the resolution from _Live_ (one second) up to _12 hours_; the longer intervals are stored by the box and survive a restart.
 
-_CPU_ (including a bar for each core) and _Memory_ are only available if the box and the Tor node run on the same device. If the host provides a temperature sensor, the temperature is charted as well. _Up since_ (the latest reboot) and _Temperature_ are only available on supported operating systems.
+_CPU_ (including a bar for each core) and _Memory_ show the load of the machine the box runs on. They are only available if the box reaches the Tor node via a local `ControlSocket` or a loopback `ControlPort` (`127.0.0.1`) - i.e. if both run on the same device; a node reached over the network or via a hidden service gets neither (nor the _Host_ panel). If the host provides a temperature sensor, the temperature is charted as well. _Up since_ (the latest reboot) and _Temperature_ are only available on supported operating systems.
 
 If the Tor node has an _Accounting_ limit configured, the panel _Accounting_ shows how much of the limit is used, the status (_awake_ or hibernating) and when the interval ends.
 
