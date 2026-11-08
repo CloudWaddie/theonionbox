@@ -1,12 +1,11 @@
 import contextlib
 import json
 import pathlib
-from pathlib import Path
 from threading import Timer
 from typing import Optional
 import uuid
 
-from bottle import Bottle, HTTPError, request, response, template, static_file
+from bottle import Bottle, HTTPError, request, response
 
 from ..apps import BaseApp
 from ..geoip import GeoIPOO
@@ -43,28 +42,6 @@ class Dashboard(BaseApp):
 
         # Will be overwritten if we operate a ControlCenter
         self.default_page = "index.html"
-
-        #####
-        # TOR manpage Index Information
-        from ..manpage import ManPage
-        self.manpage = ManPage(str(self.cwd / 'tor' / 'tor.1.ndx'))
-
-        #####
-        # Page Construction
-        #
-        # '!' as first character creates a named div
-        # '-' as entry adds a <hr>
-
-        # The sections of the index page
-        self.sections = ['!header', 'header',
-                         '!content', 'host',
-                         'config',
-                         'hiddenservice', 'local',
-                         'network', 'network_bandwidth', 'network_weights', '-',
-                         'accounting', 'monitor',
-                         # 'family',
-                         'control', 'messages',
-                         'license']
 
         #####
         # The routing table
@@ -107,9 +84,17 @@ class Dashboard(BaseApp):
                        callback=self.get_index,
                        **config)
 
+        # What the web interface needs, whatever page it is currently showing:
+        config['valid_status'] = ['ok', 'auto', 'prepared', 'login', 'error', 'frame']
+
         self.app.route('/<session>/assets/<filename:path>',
                        method='GET',
                        callback=self.get_asset,
+                       **config)
+
+        self.app.route('/<session>/api/state',
+                       method='GET',
+                       callback=self.get_state,
                        **config)
 
         config = {
@@ -126,28 +111,6 @@ class Dashboard(BaseApp):
                        callback=self.post_data,
                        **config)
 
-        config = {}
-
-        self.app.route('/<session>/manpage.html',
-                       method='GET',
-                       callback=self.get_manpage,
-                       **config)
-
-        # config = {
-        #     'valid_status': ['cc_ok']
-        # }
-        #
-        # self.app.route('/<session>/details',
-        #                method='GET',
-        #                callback=self.get_details,
-        #                **config)
-
-        # def debug_request():
-        #     self.log.debug(request.environ['PATH_INFO'])
-        #
-        # # Log connection requests...
-        # self.app.add_hook('before_request', debug_request)
-
         # Plugin for session management
         self.app.install(SessionPlugin(self.sessions))
 
@@ -158,6 +121,13 @@ class Dashboard(BaseApp):
 
         if session is None:
             raise HTTPError(404)
+
+        if self.default_page == 'cc.html':
+            # ControlCenter mode: every node - the local one included - is just a card; it is connected (with the
+            # credentials of the configuration file) in the background. Nothing has to work to show the page.
+            session['status'] = 'auto'
+            session['node'] = 'theonionbox'
+            self.redirect(f'/{session.id}/cc.html')
 
         # This allows to login via a command line provided password (to address HashedControlPassword authmethod)
         pwd = self.nodes['theonionbox'].config.password
@@ -190,106 +160,44 @@ class Dashboard(BaseApp):
 
         self.log.info(f'Session {make_short_id(session.id)}: Error Page @ "{display_error}"')
 
-        # The sections of the error page
-        error_sections = ['!header', 'header', '!content', 'error', 'license']
-
         # We failed to connect to Tor and have to admit this now!
         session['status'] = 'error'
+        session['error'] = str(display_error) or display_error.__class__.__name__
 
-        session['stylesheets'] = ['box.css']
-        session['scripts'] = ['jquery.js', 'box.js']
-
-        section_config = {}
-        section_config['header'] = {
-            'logout': False,
-            'title': 'The Onion Box',
-            'subtitle': "Version: {}<br>Your address: {}".format(self.config.stamped_version, request.get('REMOTE_ADDR'))
-        }
-
-        params = {
-            'session': session
-            , 'tor': None
-            , 'session_id': session.id
-            , 'icon': self.icon
-            , 'box_stamp': self.config.stamped_version
-            , 'virtual_basepath': self.config.box.base_path
-            , 'sections': error_sections
-            , 'section_config': section_config
-            , 'error_msg': display_error
-            , 'box.js_login': True  # flag to manipulate the creation process of 'box.js'
-            , 'template_lookup': [str(self.cwd)]      # search path for the template engine...
-            # , 'tools': template_tools.__name__
-        }
-
-        # prepare the includes
-        session['box.js'] = template('scripts/box.js', **params)
-        session['box.css'] = template('css/box.css', **params)
-        # session['fonts.css'] = template('css/latolatinfonts.css', **params)
-
-        # deliver the error page
-        return template('pages/index.html', **params)
+        return self.serve_spa(session)
 
     def create_login_page(self, session: Session, node: Node, proceed_to_page: str):
 
         self.log.debug('Session {} o-A-o {} Node'.format(session.id, node.id))
 
-        # The sections of the login page
-        login_sections = ['!header', 'header', '!content', 'login', 'license']
-
-        # Standard login Page delivery
+        # Digest if the Box knows the password (and merely verifies the one provided); Basic if it has to forward it.
         session['auth'] = 'digest' if node.controller.password is not None else 'basic'
+        session['proceed_to'] = proceed_to_page
 
-        session['stylesheets'] = ['box.css']
-        session['scripts'] = ['jquery.js', 'auth.js', 'box.js']
+        return self.serve_spa(session)
 
-        section_config = {}
-        section_config['header'] = {
-            'logout': False,
-            'title': 'The Onion Box',
-            'subtitle': "Version: {}<br>Your address: {}".format(self.config.stamped_version, request.get('REMOTE_ADDR'))
-        }
-        section_config['login'] = {
-            # 'timeout': self.config.box.ttl * 1000  # js!
-            'timeout': 20 * 1000  # js!
-        }
+    def get_state(self, session):
+        """Tells the web interface which page to show."""
 
-        params = {
-            'session': session
-            , 'tor': node.controller
-            , 'session_id': session.id
-            , 'icon': self.icon
-            , 'box_stamp': self.config.stamped_version
-            , 'virtual_basepath': self.config.box.base_path
-            , 'sections': login_sections
-            , 'section_config': section_config
-            , 'proceed_to': proceed_to_page
-            , 'box.js_login': True  # flag to manipulate the creation process of 'box.js'
-            , 'template_lookup': [str(self.cwd)]
-        }
+        status = session['status']
+        state = {'box': self.config.stamped_version, 'cc': self.default_page == 'cc.html'}
 
-        # prepare the includes
-        session['box.js'] = template('scripts/box.js', **params)
-        session['box.css'] = template('css/box.css', **params)
+        if status == 'login':
+            label = None
+            with contextlib.suppress(Exception):
+                label = self.nodes.get(session['node'] or session['cached_node']).label
+            state.update(page='login', auth=session['auth'] or 'basic', proceed_to=session['proceed_to'] or 'index.html',
+                         label=label)
+        elif status == 'error':
+            state.update(page='error', message=session['error'] or 'Unknown error.')
+        elif status == 'frame':
+            state.update(page='cc', logout=bool(session['show_logout']))
+        else:
+            state.update(page='dashboard')
 
-        if 'auth' in session:
-            if session['auth'] == 'basic':
-                session['auth.js'] = template('scripts/authrequest_basic.js'
-                                              , virtual_basepath=self.config.box.base_path
-                                              , proceed_to = proceed_to_page
-                                              , session_id=session.id
-                                              , template_lookup=[str(self.cwd)]
-                                              )
-            else:  # e.g. if login['auth'] == 'digest'
-                session['auth.js'] = template('scripts/authrequest_digest.js'
-                                              , virtual_basepath=self.config.box.base_path
-                                              , proceed_to = proceed_to_page
-                                              , session_id=session.id
-                                              , template_lookup=[str(self.cwd)]
-                                              )
-                session['scripts'].append('md5.js')
-
-        # deliver the login page
-        return template('pages/index.html', **params)
+        response.content_type = 'application/json'
+        response.set_header('Cache-Control', 'no-store')
+        return json.dumps(state)
 
     def get_restart(self, session_id):
 
@@ -401,7 +309,7 @@ class Dashboard(BaseApp):
             new_session = self.sessions.create_session(request, 'login')
             new_session['cached_node'] = node_id
 
-            self.redirect('/' + new_session.id + '/')
+            self.redirect('/' + new_session.id + '/?failed=1')
 
         self.log.warning(f"Unknown client @ 'failed.html': {make_short_id(session_id)}@{request.remote_addr}")
         self.redirect('/')
@@ -574,7 +482,7 @@ class Dashboard(BaseApp):
         from ..livedata import intervals
         from .. import api
 
-        session['overview'] = api.build_overview(
+        session['overview'] = overview = api.build_overview(
             tor=tor,
             box_version=self.version,
             box_stamp=self.config.stamped_version,
@@ -591,20 +499,12 @@ class Dashboard(BaseApp):
             transport=transport,
         )
 
+        overview['cc'] = self.default_page == 'cc.html'     # => offer the way back to all nodes
+
         # re-ping the session - to prevent accidential timeout
         self.sessions.get_session(session.id, request)
 
-        return self.serve_web_file(session, 'index.html')
-
-    def serve_web_file(self, session, filename):
-        """Deliver a file of the built frontend (theonionbox/web)."""
-        web_root = Path(self.cwd) / 'web'
-        if not (web_root / 'index.html').exists():
-            raise HTTPError(503, 'The dashboard frontend is not built. Run `npm ci && npm run build` in frontend/.')
-        return static_file(filename, root=str(web_root))
-
-    def get_asset(self, session, filename):
-        return self.serve_web_file(session, 'assets/' + filename)
+        return self.serve_spa(session)
 
     def get_overview(self, session):
         overview = session['overview']
@@ -913,6 +813,3 @@ class Dashboard(BaseApp):
 
         self.log.warning(f'LogOut requested from unknown client: {make_short_id(session_id)}@{request.remote_addr}')
         self.redirect('/')
-
-    def get_manpage(self, session):
-        return static_file('tor.1.html', root=str(self.cwd / 'tor'), mimetype='text/html')

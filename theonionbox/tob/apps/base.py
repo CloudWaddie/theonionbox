@@ -1,5 +1,7 @@
 import contextlib
+import html
 import logging
+import pathlib
 from threading import RLock
 
 # from bottle import Bottle, HTTPError, redirect
@@ -133,3 +135,32 @@ class BaseApp:
             return False
 
         return True
+
+    #####
+    # The web interface = the single page app built from frontend/ (served from 'web/')
+
+    def _web_root(self) -> pathlib.Path:
+        return pathlib.Path(self.config['cwd']) / 'web'
+
+    def serve_spa(self, session):
+        """
+        Deliver the app's index.html. A <base> tag makes every relative URL (assets, api/..., login.html, ...)
+        resolve against this session - whatever URL the page itself was requested at.
+        """
+        index = self._web_root() / 'index.html'
+        if not index.exists():
+            raise bottle.HTTPError(503, 'The web interface is not built. Run `npm ci && npm run build` in frontend/.')
+
+        base = html.escape(f'{self.config.box.base_path}/{session.id}/', quote=True)
+        page = index.read_text(encoding='utf-8').replace('<head>', f'<head>\n    <base href="{base}">', 1)
+
+        bottle.response.content_type = 'text/html; charset=UTF-8'
+        bottle.response.set_header('Cache-Control', 'no-store')
+        bottle.response.set_header('X-Frame-Options', 'DENY')
+        return page
+
+    def get_asset(self, session, filename):
+        root = self._web_root()
+        if not (root / 'index.html').exists():
+            raise bottle.HTTPError(503)
+        return bottle.static_file('assets/' + filename, root=str(root))

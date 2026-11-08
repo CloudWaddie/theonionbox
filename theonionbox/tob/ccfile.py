@@ -4,8 +4,9 @@ import contextlib
 import time
 import uuid
 
-from configupdater import ConfigUpdater, DuplicateSectionError
-from configupdater.configupdater import Section
+import os
+
+from configupdater import ConfigUpdater, DuplicateSectionError, Section
 
 
 def validate(section: Section, file=''):
@@ -74,7 +75,8 @@ class CCNode:
     host = node_property('host', None)
     port = node_property('port', None)
     password = node_property('password', None)
-    cookie = node_property('cookie', None)
+    cookie = node_property('cookie', None)                  # onion service client authorization (proxy mode)
+    control_cookie = node_property('control_cookie', None)  # Tor's control_auth_cookie (CookieAuthentication), hex
 
     del node_property
 
@@ -123,7 +125,7 @@ class CCFile:
         self.updater = ConfigUpdater()
         self.updater.read(filename)
 
-        for section in self.updater.sections_blocks():
+        for section in self.updater.iter_sections():
             validate(section, filename)
 
         self._readonly = None
@@ -131,23 +133,13 @@ class CCFile:
         self.slm = {}
 
     def __iter__(self) -> CCNode:
-        for section in self.updater.sections_blocks():
+        for section in self.updater.iter_sections():
             yield CCNode(self, section)
 
     @property
     def readonly(self) -> bool:
-        file = None
-        try:
-            file = open(self.filename, 'w')
-        except:
-            readonly = True
-        else:
-            readonly = False
-        finally:
-            if file is not None:
-                file.close()
-
-        return readonly
+        # NOTE: This used to probe with open(filename, 'w') - which truncates the file!
+        return not os.access(self.filename, os.W_OK)
 
     def write(self):
         with contextlib.suppress(Exception):

@@ -278,7 +278,6 @@ packages = [
     'theonionbox',
     'theonionbox.tob',
     'theonionbox.tob.apps',
-    'theonionbox.tob.libraries',
     'theonionbox.tob.livedata',
     'theonionbox.tob.nodes',
     'theonionbox.tob.plugin',
@@ -294,7 +293,6 @@ package_dir = {
     'theonionbox': 'theonionbox',
     'theonionbox.tob': 'theonionbox/tob',
     'theonionbox.tob.apps': 'theonionbox/tob/apps',
-    'theonionbox.tob.libraries': 'theonionbox/tob/libraries',
     'theonionbox.tob.livedata': 'theonionbox/tob/livedata',
     'theonionbox.tob.nodes': 'theonionbox/tob/nodes',
     'theonionbox.tob.plugin': 'theonionbox/tob/plugin',
@@ -309,12 +307,6 @@ package_dir = {
 package_data = {
     'theonionbox': [
         'config/*',
-        'css/*',
-        'libs/*',
-        'pages/*',
-        'scripts/*',
-        'sections/*',
-        'tor/*',
         'web/*'
     ],
     'theonionbox.tob.system.windows': [
@@ -322,10 +314,7 @@ package_data = {
     ]
 }
 
-package_data_exclude = {
-    'theonionbox': ['sections/controlcenter/*',
-                    ]
-}
+package_data_exclude = {}
 
 data_files = [
     # ('', ['pyproject.toml']),

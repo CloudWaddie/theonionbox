@@ -2,7 +2,6 @@
 import logging
 import sys
 
-from .manpage import ManPage
 
 # file based special message filtering
 from .log import getGlobalFilter

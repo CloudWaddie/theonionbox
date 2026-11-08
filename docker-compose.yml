@@ -1,0 +1,25 @@
+# The Onion Box - ready for Coolify (build pack "Docker Compose"), and for plain `docker compose up -d`.
+# Guide: docs/coolify.md
+services:
+  theonionbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # Coolify: assigns a domain (HTTPS via its proxy) and routes it to port 8080 of this service.
+      - SERVICE_FQDN_THEONIONBOX_8080
+      # Protects the whole Box. Set it in Coolify's environment variables; without it the build refuses to start.
+      - TOB_ACCESS_PASSWORD=${TOB_ACCESS_PASSWORD:?Set TOB_ACCESS_PASSWORD to a long random password}
+    volumes:
+      - tob-data:/data
+    # (`docker compose up` outside Coolify: add  ports: ["8080:8080"]  - or put your own proxy in front.)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/__health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+
+volumes:
+  tob-data:

@@ -53,6 +53,7 @@ export interface NetworkInfo {
 export interface Overview {
   token: string
   box: { version: string }
+  cc?: boolean
   header: { title: string; location: string; tor_version: string; fingerprint: string | null; logout: boolean }
   sections: string[]
   tor: TorInfo
@@ -64,6 +65,13 @@ export interface Overview {
   intervals: Record<string, number>
   transport: { or: number; circ: number; stream: number }
 }
+
+/** GET api/state: which page the Box wants to show for this session. */
+export type PageState =
+  | { page: 'login'; auth: 'digest' | 'basic'; proceed_to: string; label: string | null; box: string; cc: boolean }
+  | { page: 'error'; message: string; box: string; cc: boolean }
+  | { page: 'cc'; logout: boolean; box: string; cc: boolean }
+  | { page: 'dashboard'; box: string; cc: boolean }
 
 /* --- live data (POST data.html) --- */
 

@@ -346,65 +346,15 @@ class Box:
             theonionbox.app.add_hook('before_request', debug_request)
 
 
-        # Static files - which are many meanwhile
-        from .static import SessionFileProvider
+        from .access import AccessGate, HealthCheck
+        self.box = HealthCheck(theonionbox.app)
 
-        boxLibsPath = Path(self.config['cwd']) / 'libs'
-
-        libs = SessionFileProvider(self.sessions, boxLibsPath / 'jquery-3.4.1' / 'jquery-3.4.1.min.js', '/jquery.js')
-
-        libs.add(boxLibsPath / 'bootstrap-4.3.1' / 'js' / 'bootstrap.bundle.min.js', '/bootstrap.js')
-        libs.add(boxLibsPath / 'bootstrap-4.3.1' / 'css' / 'bootstrap.min.css', '/bootstrap.css')
-
-        libs.add(boxLibsPath / 'glide-3.4.1' / 'dist' / 'glide.js', '/glide.js')
-        libs.add(boxLibsPath / 'glide-3.4.1' / 'dist' / 'css' / 'glide.core.css', '/glide.core.css')
-        libs.add(boxLibsPath / 'glide-3.4.1' / 'dist' / 'css' / 'glide.theme.css', '/glide.theme.css')
-
-        libs.add(boxLibsPath / 'scrollMonitor-1.2.4' / 'scrollMonitor.js', '/scrollMonitor.js')
-
-        libs.add(boxLibsPath / 'smoothie-1.36' / 'smoothie.js', '/smoothie.js')
-
-        # libs.add(boxLibsPath / 'underscore-1.9.1' / 'underscore-min.js', '/underscore.js')
-
-        libs.add(boxLibsPath / 'js-md5-0.7.3' / 'md5.js', '/md5.js')
-
-        libs.add(boxLibsPath / 'jquery.pep-0.6.10' / 'jquery.pep.js', '/pep.js')
-
-        # libs.add(boxLibsPath / 'toggle-3.5.0' / 'js' / 'bootstrap4-toggle.min.js', '/toggle.js')
-        # libs.add(boxLibsPath / 'toggle-3.5.0' / 'css' / 'bootstrap4-toggle.min.css', '/toggle.css')
-
-        # libs.add(boxLibsPath / 'HackTimer-20181012' / 'HackTimer.js', '/hacktimer.js')
-
-        # This is not really a library ... but the scheme works here as well.
-        libs.add(Path(self.config['cwd']) / 'scripts' / 'chart.js', 'chart.js')
-
-        theonionbox.merge(libs)
-
-        # Those are static files as well - yet created by a template run & stored into the session object
-
-        from .static import TemplateFileProvider
-
-        templt = TemplateFileProvider(self.sessions, 'box.js', '/box.js')
-        templt.add('box.css', '/box.css')
-        templt.add('cc.js', '/cc.js')
-        templt.add('cc.css', '/cc.css')
-        templt.add('auth.js', '/auth.js')
-
-        theonionbox.merge(templt)
-
-        # LatoLatin
-        from .libraries import LatoLatin
-        libLatoLatin = LatoLatin(self.sessions, os.path.join(boxLibsPath, 'LatoLatin'),
-                                 valid_status=['ok', 'auto', 'error', 'login', 'frame'])
-        theonionbox.merge(libLatoLatin)
-
-        # Fontawesome
-        from .libraries import FontAwesome
-        libFontAwesome = FontAwesome(self.sessions, os.path.join(boxLibsPath, 'fontawesome-free-5.11.2-web'),
-                                     valid_status='frame')
-        theonionbox.merge(libFontAwesome)
-
-        self.box = theonionbox.app
+        if self.config.box.access_password:
+            self.box = AccessGate(self.box, self.config.box.access_password, self.config.box.base_path)
+            self.log.notice('Access protection is ON: a password is required to use this Box.')
+        elif self.config.box.host not in ('127.0.0.1', 'localhost'):
+            self.log.warning(f"The Box listens on '{self.config.box.host}' without access protection. "
+                             "Anyone who can reach it can use it. Consider setting TOB_ACCESS_PASSWORD.")
 
         #####
         # Our Web Server

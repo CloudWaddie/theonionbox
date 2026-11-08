@@ -197,13 +197,16 @@ def launcher(results, debug, trace, config, cc, log):
               type=click.Path(exists=True, file_okay=True, dir_okay=False,
                               readable=True, resolve_path=True, allow_dash=False),
               help='Path to supplemental GeoIP2 city database.')
+@click.option('--access_password', envvar='TOB_ACCESS_PASSWORD', default=None, metavar='PASSWORD',
+              help='Protect the whole Box (dashboard & ControlCenter) with this password. '
+                   'Recommended whenever the Box is reachable by others. Env: TOB_ACCESS_PASSWORD.')
 @click.option('--persistance_dir', default=None, show_default=True,
               type=click.Path(exists=True, file_okay=False, dir_okay=True,
                               readable=True, writable=True, resolve_path=True, allow_dash=False),
               help='Path to store the database file for monitoring data persistance.')
 @click.pass_context
 def box(ctx, host, port, message_level, base_path, session_ttl, ssl_key, ssl_certificate, ntp_server, geoip2_city,
-        persistance_dir):
+        access_password, persistance_dir):
     """Options to configure your Onion Box."""
 
     if ssl_key is not None or ssl_certificate is not None:
@@ -231,6 +234,9 @@ def box(ctx, host, port, message_level, base_path, session_ttl, ssl_key, ssl_cer
     if base_path is None:
         base_path = ''
 
+    # click does not evaluate 'envvar' if this command is invoked with the values of the configuration file.
+    access_password = access_password or os.environ.get('TOB_ACCESS_PASSWORD') or None
+
     return {'box': {
         'host': host,
         'port': port,
@@ -241,6 +247,7 @@ def box(ctx, host, port, message_level, base_path, session_ttl, ssl_key, ssl_cer
         'ssl_certificate': ssl_certificate,
         'ntp_server': ntp_server,
         'geoip2_city': geoip2_city,
+        'access_password': access_password or None,
         'persistance_dir': persistance_dir
     }}
 

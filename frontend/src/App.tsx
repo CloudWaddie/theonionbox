@@ -1,20 +1,61 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, FileText, LogOut, Monitor, Moon, Server, Sun, Globe2 } from 'lucide-react'
-import type { Overview } from '@/lib/types'
+import { Activity, FileText, Globe2, LayoutGrid, LogOut, Server } from 'lucide-react'
+import type { Overview, PageState } from '@/lib/types'
 import { fetchOverview, useDashboard } from '@/lib/useDashboard'
-import { useTheme } from '@/lib/theme'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Footer, TopBar } from '@/components/shell'
 import { OverviewView } from '@/views/Overview'
 import { NetworkView } from '@/views/Network'
 import { NodeView } from '@/views/Node'
 import { LogsView } from '@/views/Logs'
-import { makeMock, mockOverview } from '@/mock'
+import { LoginView } from '@/views/Login'
+import { ErrorView } from '@/views/ErrorPage'
+import { ControlCenterView } from '@/views/ControlCenter'
+import { installMockApi, makeMock, mockOverview } from '@/mock'
 
-const isMock = new URLSearchParams(location.search).has('mock')
+const params = new URLSearchParams(location.search)
+const isMock = params.has('mock')
+if (isMock) installMockApi()
 
 export default function App() {
+  const [state, setState] = useState<PageState | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('api/state', { cache: 'no-store', credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then(setState)
+      .catch((e) => setError(String(e.message ?? e)))
+  }, [])
+
+  if (error) return <Fatal message={error} />
+  if (!state) return <Splash />
+
+  switch (state.page) {
+    case 'login': return <LoginView auth={state.auth} proceedTo={state.proceed_to} label={state.label} version={state.box} />
+    case 'error': return <ErrorView message={state.message} version={state.box} />
+    case 'cc': return <ControlCenterView version={state.box} logout={state.logout} />
+    default: return <DashboardLoader />
+  }
+}
+
+function Splash() {
+  return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Connecting to Tor…</div>
+}
+
+function Fatal({ message }: { message: string }) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
+      <h1 className="text-xl font-semibold">Session unavailable</h1>
+      <p className="max-w-md text-sm text-muted-foreground">The Box could not deliver this page ({message}). Your session may have expired.</p>
+      <Button asChild><a href="../">Start a new session</a></Button>
+    </div>
+  )
+}
+
+function DashboardLoader() {
   const [overview, setOverview] = useState<Overview | null>(isMock ? mockOverview : null)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,41 +69,6 @@ export default function App() {
   return <Dashboard overview={overview} />
 }
 
-function Splash() {
-  return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Connecting to Tor…</div>
-}
-
-function Fatal({ message }: { message: string }) {
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6 text-center">
-      <h1 className="text-xl font-semibold">Session unavailable</h1>
-      <p className="max-w-md text-sm text-muted-foreground">The Box could not deliver the dashboard ({message}). Your session may have expired.</p>
-      <Button asChild><a href="../">Start a new session</a></Button>
-    </div>
-  )
-}
-
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const next = { light: 'dark', dark: 'system', system: 'light' } as const
-  const Icon = theme === 'light' ? Sun : theme === 'dark' ? Moon : Monitor
-  return (
-    <Button variant="ghost" size="icon" onClick={() => setTheme(next[theme])} title={`Theme: ${theme} (click to change)`} aria-label={`Theme: ${theme}`}>
-      <Icon />
-    </Button>
-  )
-}
-
-function Logo() {
-  return (
-    <svg viewBox="0 0 32 32" className="size-6" aria-hidden>
-      <circle cx="16" cy="16" r="14" fill="currentColor" />
-      <circle cx="16" cy="16" r="9" fill="none" stroke="hsl(var(--background))" strokeWidth="2" />
-      <circle cx="16" cy="16" r="4" fill="none" stroke="hsl(var(--background))" strokeWidth="2" />
-    </svg>
-  )
-}
-
 function Dashboard({ overview }: { overview: Overview }) {
   const mock = useMemo(() => (isMock ? makeMock() : undefined), [])
   const live = useDashboard(overview, mock)
@@ -70,30 +76,25 @@ function Dashboard({ overview }: { overview: Overview }) {
   const [tab, setTab] = useState(() => location.hash.slice(1) || 'overview')
   const { header, tor } = overview
 
-  useEffect(() => { history.replaceState(null, '', `#${tab}`) }, [tab])
+  useEffect(() => { history.replaceState(null, "", `${location.pathname}${location.search}#${tab}`) }, [tab])
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur">
-        <div className="container flex h-14 items-center justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <Logo />
-            <span className="hidden font-semibold tracking-tight sm:inline">The Onion Box</span>
-            <span className="hidden text-muted-foreground sm:inline">/</span>
-            <span className="truncate font-medium">{header.title}</span>
-            <Badge variant={live.connected ? 'success' : live.expired ? 'destructive' : 'warning'} className="shrink-0">
-              <span className="size-1.5 rounded-full bg-current" />
-              {live.connected ? 'Live' : live.expired ? 'Expired' : 'Reconnecting'}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            {header.logout && (
-              <Button variant="outline" size="sm" asChild><a href="logout.html"><LogOut /> Logout</a></Button>
-            )}
-          </div>
-        </div>
-      </header>
+      <TopBar
+        actions={
+          <>
+            {overview.cc && <Button variant="ghost" size="sm" asChild><a href="../"><LayoutGrid />All nodes</a></Button>}
+            {header.logout && <Button variant="outline" size="sm" asChild><a href="logout.html"><LogOut /> Logout</a></Button>}
+          </>
+        }
+      >
+        <span className="hidden text-muted-foreground sm:inline">/</span>
+        <span className="truncate font-medium">{header.title}</span>
+        <Badge variant={live.connected ? 'success' : live.expired ? 'destructive' : 'warning'} className="shrink-0">
+          <span className="size-1.5 rounded-full bg-current" />
+          {live.connected ? 'Live' : live.expired ? 'Expired' : 'Reconnecting'}
+        </Badge>
+      </TopBar>
 
       <main className="container py-8">
         <div className="mb-8 space-y-1">
@@ -117,10 +118,7 @@ function Dashboard({ overview }: { overview: Overview }) {
           <TabsContent value="logs"><LogsView live={live} setLevel={live.setLevel} /></TabsContent>
         </Tabs>
 
-        <footer className="mt-12 flex flex-wrap items-center justify-between gap-2 border-t pt-6 text-xs text-muted-foreground">
-          <span>The Onion Box {overview.box.version}</span>
-          <a className="underline-offset-4 hover:underline" href="https://github.com/cloudwaddie/theonionbox" target="_blank" rel="noreferrer">Source on GitHub · MIT licensed</a>
-        </footer>
+        <Footer version={overview.box.version} />
       </main>
 
       {live.expired && (
