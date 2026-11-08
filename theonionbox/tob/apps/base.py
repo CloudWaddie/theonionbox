@@ -137,16 +137,14 @@ class BaseApp:
         return True
 
     #####
-    # The web interface = the single page app built from frontend/ (served from 'web/')
+    # web ui: the built frontend/ app in web/
 
     def _web_root(self) -> pathlib.Path:
         return pathlib.Path(self.config['cwd']) / 'web'
 
     def serve_spa(self, session):
-        """
-        Deliver the app's index.html. A <base> tag makes every relative URL (assets, api/..., login.html, ...)
-        resolve against this session - whatever URL the page itself was requested at.
-        """
+        # <base> makes the relative urls (assets, api/..., login.html) resolve against the session,
+        # whatever url the page itself was served at
         index = self._web_root() / 'index.html'
         if not index.exists():
             raise bottle.HTTPError(503, 'The web interface is not built. Run `npm ci && npm run build` in frontend/.')

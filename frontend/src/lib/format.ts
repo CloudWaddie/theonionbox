@@ -1,6 +1,6 @@
 const UNITS = ['B', 'kB', 'MB', 'GB', 'TB', 'PB']
 
-/** SI units, as the former dashboard did. */
+// si units like the old dashboard
 export function formatBytes(value: number | null | undefined, digits = 1): string {
   if (value == null || !isFinite(value)) return '–'
   const abs = Math.abs(value)
@@ -27,7 +27,6 @@ export function formatDateTime(ts: number | string | null | undefined): string {
   return isNaN(d.getTime()) ? String(ts) : d.toLocaleString()
 }
 
-/** Tick label for a time axis, adapting to the span that is shown. */
 export function axisTime(spanMs: number) {
   return (ts: number) => {
     const d = new Date(ts)
@@ -38,7 +37,7 @@ export function axisTime(spanMs: number) {
   }
 }
 
-/** Server messages arrive HTML-escaped; React escapes again, so decode them first. */
+// log messages come html-escaped and react escapes again, decode first
 export function decodeEntities(text: string): string {
   if (!text.includes('&')) return text
   const doc = new DOMParser().parseFromString(text, 'text/html')

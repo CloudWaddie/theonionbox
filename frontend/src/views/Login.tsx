@@ -22,7 +22,7 @@ export function LoginView({ auth, proceedTo, label, version }: { auth: 'digest' 
     try {
       location.assign(await login(sessionId(), password, auth, proceedTo))
     } catch (err) {
-      // Same as before: a failed attempt invalidates the session; the Box hands out a fresh one.
+      // a failed attempt kills the session, failed.html hands out a new one
       if (err instanceof LoginFailed || err instanceof TypeError) location.assign('failed.html')
       else setError(String(err))
       setBusy(false)

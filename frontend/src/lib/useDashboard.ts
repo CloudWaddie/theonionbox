@@ -30,10 +30,7 @@ export async function fetchOverview(): Promise<Overview> {
   return res.json()
 }
 
-/**
- * Polls the Box (POST data.html), which hands out a fresh session token with every answer.
- * Timestamps are shifted by the difference of server and browser clock - exactly like the former dashboard did.
- */
+// polls data.html, every answer carries the next token. timestamps get shifted by the server/browser clock difference
 export function useDashboard(overview: Overview, mock?: () => LiveResponse) {
   const [state, setState] = useState<LiveState>({
     connected: false,

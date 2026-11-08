@@ -1,9 +1,4 @@
-"""
-JSON API used by the single page dashboard (frontend/ -> theonionbox/web).
-
-The static part of the dashboard ("overview") is assembled here. Live data (charts, logs, ...)
-continues to be delivered by the session based ``data.html`` endpoint of the dashboard app.
-"""
+"""json for the web ui: the static overview. live data still comes from data.html"""
 
 import logging
 import socket
@@ -21,7 +16,7 @@ def _safe(fn: Callable[[], Any], default: Any = None) -> Any:
 
 
 def _jsonable(value: Any) -> Any:
-    """Make arbitrary values (datetime, bytes, sets, ...) safe for the JSON encoder."""
+    # datetime, bytes, sets etc. -> something json can take
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, dict):
@@ -34,18 +29,14 @@ def _jsonable(value: Any) -> Any:
 
 
 def _version_key(version: str):
-    """'0.4.9.11' -> (0, 4, 9, 11); pre-release suffixes (-alpha, -rc, -dev) sort before the release."""
+    # -alpha/-rc/-dev sort before the release
     main, _, suffix = version.partition('-')
     nums = tuple(int(x) if x.isdigit() else 0 for x in main.split('.'))
     return nums + (0,) * (4 - len(nums)), 0 if suffix else 1
 
 
 def latest_tor_versions(tor):
-    """
-    Ask Tor itself which versions the network recommends (from the consensus).
-    The former update service (a v2 onion address) is gone, Tor dropped v2 onions in 0.4.6.
-    Returns (latest_stable, latest_unstable) - either may be None.
-    """
+    # the old update service was a v2 onion, so ask tor itself. returns (stable, unstable), either may be None
     recommended = _safe(lambda: tor.get_info('status/version/recommended'), '') or ''
     versions = [v.strip() for v in recommended.split(',') if v.strip()]
     stable = [v for v in versions if '-' not in v]
@@ -132,7 +123,7 @@ def hidden_service_section(tor) -> List[Dict[str, Any]]:
 
 
 def network_section(oo_details, geoip) -> Optional[Dict[str, Any]]:
-    """Subset of the Onionoo 'details' document."""
+    # the bits of the onionoo details we show
     if oo_details is None:
         return None
 

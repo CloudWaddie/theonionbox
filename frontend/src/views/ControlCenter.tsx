@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 const POLL_MS = 2500
 const KEEP = 90
 
-/** Polls the node list; keeps the recent bandwidth samples of each node for the sparklines. */
+// polls the node list, keeps the last samples per node for the sparklines
 function useNodes() {
   const [nodes, setNodes] = useState<CCNode[]>([])
   const [history, setHistory] = useState<Record<string, BwSample[]>>({})

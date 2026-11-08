@@ -4,7 +4,7 @@ import { axisTime } from '@/lib/format'
 export interface ChartSeries {
   key: string
   label: string
-  /** CSS colour, usually `hsl(var(--chart-1))` so that it follows the theme. */
+  // css colour, hsl(var(--chart-n)) so it follows the theme
   color: string
 }
 
@@ -15,9 +15,9 @@ interface TimeChartProps {
   series: ChartSeries[]
   height?: number
   format?: (v: number) => string
-  /** Fix the upper bound of the y axis, e.g. 100 for percentages. */
+  // fixed y max, e.g. 100 for percent
   yMax?: number
-  /** Smallest upper bound of an auto-scaled y axis, so that an idle chart does not zoom into noise. */
+  // keeps an idle chart from zooming into noise
   minTop?: number
   step?: boolean
   stacked?: boolean

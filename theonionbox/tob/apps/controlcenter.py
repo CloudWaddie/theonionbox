@@ -1,10 +1,4 @@
-"""
-The ControlCenter: monitor any number of Tor nodes (relays, bridges, clients) from one Box.
-
-The UI is the single page app in `web/`; this module is its JSON API (`/<session>/api/cc/...`).
-The nodes are stored in the file given by `--controlcenter` (see ccfile.py). Their credentials are kept there as well,
-so the Box connects to them on its own - in the background - and the browser never handles a node's password.
-"""
+"""controlcenter: json api (/<session>/api/cc/...) for monitoring many nodes. nodes + their credentials live in cc.cfg, the box connects on its own"""
 
 import contextlib
 import json
@@ -39,7 +33,7 @@ class ValidationError(ValueError):
 
 @contextlib.contextmanager
 def _cookie_file(hex_cookie: str):
-    """stem wants a file: a private, short lived one. (mkstemp creates it with 0600.)"""
+    # stem only takes a cookie file, so write a short lived one (mkstemp is 0600)
     fd, path = tempfile.mkstemp(prefix='tob-cookie-')
     try:
         with os.fdopen(fd, 'wb') as f:
@@ -51,7 +45,7 @@ def _cookie_file(hex_cookie: str):
 
 
 def _clean(value: Any, name: str, maxlen: int = 256, required: bool = False) -> Optional[str]:
-    """Values end up in a config file: no control characters (e.g. newlines) allowed."""
+    # these land in a config file, so no newlines etc
     if value is None:
         if required:
             raise ValidationError(f"'{name}' is required.")
@@ -69,7 +63,7 @@ def _clean(value: Any, name: str, maxlen: int = 256, required: bool = False) -> 
 
 
 def validate_node(data: Dict[str, Any], partial: bool = False) -> Dict[str, Any]:
-    """Return the cleaned fields. With `partial` (edit), absent keys are left out."""
+    # partial = edit, keys that weren't sent stay out
 
     out: Dict[str, Any] = {}
 
@@ -132,7 +126,7 @@ class ControlCenter(BaseApp):
         self.cc = CCFile(self.config.cc)
         self.log = logging.getLogger('theonionbox')
 
-        # Nodes are connected in the background: a dead node must never block the others.
+        # connect in the background so a dead node can't block the rest
         self.pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix='cc-connect')
         self.connecting: Dict[str, Any] = {}      # api id -> Future
         self.errors: Dict[str, Dict[str, str]] = {}   # api id -> {'kind': 'auth' | 'offline', 'message': ...}
@@ -153,9 +147,6 @@ class ControlCenter(BaseApp):
         route('/<session>/api/cc/order', 'POST', self.api_order)
         route('/<session>/api/cc/test', 'POST', self.api_test)
 
-    # ------------------------------------------------------------------------------------------------------------
-    # The page
-
     def get_cc(self, session):
 
         if session is None or 'status' not in session:
@@ -174,16 +165,13 @@ class ControlCenter(BaseApp):
         if 'show_logout' not in session or session['show_logout'] is None:
             session['show_logout'] = session['status'] == 'ok'
 
-        # This indicates the session is now the CC frame
+        # this session is the cc frame from now on
         session['status'] = 'frame'
         return self.serve_spa(session)
 
     def get_cc_logout(self, session):
         self.sessions.delete_session(session)
         self.redirect('/')
-
-    # ------------------------------------------------------------------------------------------------------------
-    # Nodes
 
     def _sections(self) -> Dict[str, CCNode]:
         return {s.name: s for s in self.cc}
@@ -209,7 +197,7 @@ class ControlCenter(BaseApp):
         return getattr(config, 'password', None) if config is not None else None
 
     def _connect(self, api_id: str, node: Node) -> None:
-        """Runs in the background pool."""
+        # runs in the pool
         from stem.connection import AuthenticationFailure
 
         try:
@@ -224,18 +212,17 @@ class ControlCenter(BaseApp):
 
                 control_cookie = getattr(self._config_of(api_id), 'control_cookie', None)
                 if control_cookie and pi is not None:
-                    # Tor's CookieAuthentication for a node whose cookie *file* we can't read (a remote machine):
-                    # stem authenticates (SAFECOOKIE: the cookie itself never crosses the wire) from a file ...
+                    # remote node, can't read its cookie file: use the pasted cookie (safecookie, never sent as is)
                     with _cookie_file(control_cookie) as path:
                         pi.cookie_path = path
                         tor.authenticate(password=self._password(api_id), protocolinfo_response=pi)
                 else:
-                    # ... otherwise it reads the file Tor names in PROTOCOLINFO (e.g. on a shared volume).
+                    # otherwise stem reads the file tor names in protocolinfo (shared volume)
                     tor.authenticate(password=self._password(api_id), protocolinfo_response=pi)
             self.errors.pop(api_id, None)
         except AuthenticationFailure as exc:
             message = str(exc) or 'Authentication failed.'
-            # stem also reports a *connection* that broke during authentication this way
+            # stem reports a dropped connection as an auth failure too
             kind = 'offline' if message.startswith('socket connection failed') else 'auth'
             self.errors[api_id] = {'kind': kind, 'message': message}
             with contextlib.suppress(Exception):
@@ -246,7 +233,7 @@ class ControlCenter(BaseApp):
                 node.disconnect()
 
     def _ready(self, api_id: str, node: Node) -> bool:
-        """True if the node is connected & authenticated; otherwise a (re)connect is scheduled."""
+        # True if connected + authenticated, else kick off a (re)connect
         with contextlib.suppress(Exception):
             tor = node.controller
             if tor.is_alive() and tor.is_authenticated():
@@ -336,9 +323,6 @@ class ControlCenter(BaseApp):
 
         return card
 
-    # ------------------------------------------------------------------------------------------------------------
-    # API
-
     def _json_body(self) -> Dict[str, Any]:
         try:
             data = bottle.request.json
@@ -369,8 +353,7 @@ class ControlCenter(BaseApp):
         ids = [s.name for s in self.cc]
         cards = [self._card(i, since) for i in ids]
 
-        # The default node (a Tor on the Box's own machine) is only interesting if it is there:
-        # In a container there usually is none - and nobody wants a phantom card for it.
+        # skip the local default node unless it exists, in a container it never does
         default = self._card(DEFAULT_ID, since)
         if default['state'] in ('ok', 'auth'):
             cards.insert(0, default)
@@ -412,7 +395,7 @@ class ControlCenter(BaseApp):
             setattr(section, key, value)
         section.tick()
 
-        # Make the node reconnect with the new settings.
+        # reconnect with the new settings
         node = self.nodes.get_name(name)
         if node is not None:
             node.disconnect()
@@ -459,7 +442,7 @@ class ControlCenter(BaseApp):
         return self._ok({'ok': True})
 
     def api_test(self, session):
-        """Does something answer like a Tor ControlPort? (The password is deliberately NOT tested.)"""
+        # does a control port answer? password is deliberately not tried
         from ..simplecontroller import SimplePort, SimpleSocket, SimpleProxy
 
         try:
@@ -498,13 +481,12 @@ class ControlCenter(BaseApp):
                     sc.shutdown()
 
     def api_open(self, session, name):
-        """Open the detail dashboard of a node: a new 'login' session that the dashboard's restart route picks up."""
+        # details = new 'login' session that the dashboard restart route picks up
         node = self._node(name)
         if node is None:
             self._fail(404, 'Unknown node.')
 
-        # Connect first - with the credentials stored for this node (password, control cookie, ...).
-        # The detail dashboard then finds an authenticated node and does not ask the user for anything.
+        # connect first with the stored creds so the dashboard doesn't ask for a password
         if not self._ready(name, node):
             future = self.connecting.get(name)
             if future is not None:
