@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (typecheck & build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        run: npm ci
+        working-directory: frontend
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: frontend
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+      - name: Committed build (theonionbox/web) must match the sources
+        run: |
+          git add -N theonionbox/web
+          if ! git diff --exit-code --stat theonionbox/web; then
+            echo "::error::theonionbox/web is out of date. Run 'npm ci && npm run build' in frontend/ and commit the result."
+            exit 1
+          fi
+
+  python:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.9', '3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install . pytest
+      - name: Tests
+        # run from a neutral directory so that the *installed* package (incl. web/) is what gets tested
+        run: |
+          cp -r tests "$RUNNER_TEMP/tests"
+          cd "$RUNNER_TEMP"
+          python -m pytest -q tests
+      - name: Command line smoke test
+        run: theonionbox --help
+      - name: Frontend is packaged
+        run: python -c "import pathlib, theonionbox; p = pathlib.Path(theonionbox.__file__).parent / 'web'; assert (p / 'index.html').exists() and any((p / 'assets').glob('*.js')), p"
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: theonionbox:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Container starts
+        run: docker run --rm theonionbox:ci --help

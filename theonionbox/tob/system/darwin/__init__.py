@@ -67,7 +67,7 @@ class Darwin(BaseSystem):
                 # 17:35  up  17 days, 1 min, 1 user, load averages: 4.03 2.47 1.97
                 # 17:35  up  1 day, 5:10, 1 user, load averages: 4.03 2.47 1.97
 
-                uptime = re.findall('(\d+:\d+)(?: {1,2}up {1,2})(?:(\d+)(?: days?, ))?(?:(\d+:\d+)|(?:(\d+)(?: mins?))),', uptime)
+                uptime = re.findall(r'(\d+:\d+)(?: {1,2}up {1,2})(?:(\d+)(?: days?, ))?(?:(\d+:\d+)|(?:(\d+)(?: mins?))),', uptime)
 
                 # we just expect one match!
                 if len(uptime) == 1:

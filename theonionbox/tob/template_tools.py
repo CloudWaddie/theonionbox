@@ -38,7 +38,7 @@ def standard_row(datum='', value=''):
 
 def header_row(bold='', section='', target=''):
     out = "<div class='row hash_target'"
-    if target is not '':
+    if target != '':
         out += " id='{}'".format(target)
     out += "><div class='{}'>{}</div>".format(box_bold_grid, bold)
     out += "<div class='{}'>{}</div>".format(box_section_grid, section)
@@ -63,7 +63,7 @@ def group_row(title='', color='lightgrey', bold=False, target=''):
                , title
                , box_value_grid
                , box_right_grid
-               , ('id="' + target + '"') if target is not '' else '')
+               , ('id="' + target + '"') if target != '' else '')
     return out
 
 

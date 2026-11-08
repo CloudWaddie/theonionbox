@@ -69,3 +69,6 @@ theonionbox/theonionbox.ltd
 
 # Rapydscript
 *.pyj-cached
+# Frontend (Vite) - the *built* output in theonionbox/web is committed on purpose
+/frontend/node_modules/
+/frontend/dist/

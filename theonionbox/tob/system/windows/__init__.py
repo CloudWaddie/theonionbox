@@ -83,7 +83,7 @@ class Windows(BaseSystem):
                 # Get the known timeservers from the registry
                 reg = subprocess.check_output(['reg',
                                                'query',
-                                               'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\DateTime\Servers'])
+                                               r'HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\DateTime\Servers'])
                 reg = reg.decode("utf-8")
 
                 # HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\DateTime\Servers

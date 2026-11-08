@@ -55,7 +55,7 @@ class Recorder(object):
         return int(self.reference_slot * self.interval)
 
     def get(self, key: str) -> int:
-        if key is 'timestamp':
+        if key == 'timestamp':
             return self.reference_slot * self.interval
         return self.basket[key]
 

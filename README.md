@@ -13,7 +13,7 @@
 
 This latest version of The Onion Box introduces three changes of relevance:
 * The current versioning scheme was dropped in preference for [Calendar Versioning](www.calver.org). Thus v19.2 will become the successor of v4.3.1.
-* The Onion Box v19.2 and later requires Python 3.6 or Python 3.7. If you need to operate with Python2, you have to stay with The Onion Box v4.3.1.
+* This fork requires Python 3.9 or later (tested up to 3.13) and Tor 0.4.x. The Onion Box v19.2 requires Python 3.6 or Python 3.7. If you need to operate with Python2, you have to stay with The Onion Box v4.3.1.
 * In addition to the well known (legacy) dashboard, suitable to monitor just a single Tor instance, The Onion Box now provides a ControlCenter mode to monitor a(ny) number of Tor nodes in parallel. That's how it looks like:
 
 ![image](docs/images/cc.png)
@@ -1376,51 +1376,43 @@ base_path = /theonionbox
 Now everything should work as expected.
 
 ## *The Onion Box* Docker support
-The [Docker](Docker) directory holds a [Dockerfile](https://docs.docker.com/engine/reference/builder/) and a dedicated configuration file (`theonionbox.cfg`) to support the operation of *The Onion Box* from a [Docker](http://www.docker.com) image. Please be aware, that this Docker image for *The Onion Box* only supports [password authentication](#password-authentication).
+The repository root holds a multi-stage [Dockerfile](Dockerfile): the first stage builds the dashboard (Node is **not** part of the final image), the second installs *The Onion Box* from this checkout into a slim Python image. The dedicated configuration file for the container is [`Docker/theonionbox.cfg`](Docker/theonionbox.cfg). Please be aware, that this Docker image for *The Onion Box* only supports [password authentication](#password-authentication).
 
-To build the image, change to the Docker directory and run `sudo docker build -t theonionbox .`.
-> If you've run `pip` to perform the [installation](#installation) of your Onion Box, you'll find the Docker directory within the [`service`](#verification-of-the-installation) directory.
+To build the image, run in the repository root
 
-To then launch *The Onion Box* within the created Docker image, run `sudo docker run --network host -p 8080:8080 theonionbox`.
+```bash
+docker build -t theonionbox .
+```
+
+To then launch *The Onion Box* within the created Docker image, run
+
+```bash
+docker run --network host -p 8080:8080 theonionbox
+```
+
+Additional command line options are appended to the `docker run` command; to use your own configuration, mount it over `/etc/theonionbox/theonionbox.cfg`.
+
+## Development of the web interface
+The dashboard is a single page app ([Vite](https://vite.dev) + React + TypeScript + [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) components, charts by [Recharts](https://recharts.org)) located in [`frontend/`](frontend). It supports a light and a dark theme (following the system, switchable in the header).
+
+*The Onion Box* serves the **built** result from `theonionbox/web`, which is committed to the repository & shipped within the Python package. Therefore neither `pip install` nor Docker users need Node.js. You only need it if you change the frontend:
+
+```bash
+cd frontend
+npm ci
+npm run build      # writes to ../theonionbox/web - commit the result
+npm run dev        # dev server; open http://localhost:5173/?mock=1 to develop with demo data
+```
+
+The CI verifies that the committed build matches the sources. The Python side delivers the static information as JSON (`/<session>/api/overview`, see `theonionbox/tob/api.py`) and the live data via the established `/<session>/data.html` endpoint.
+
+Run the tests with `pip install pytest && pytest tests`.
 
 
 ## Usage Monitoring
-To create a small survey of its usage, _The Onion Box_ sends the following information to `t527moy64zwxsfhb.onion`, the hidden service acting as _The Onion Box Update Service_ when requesting the latest version information of Tor and _The Onion Box_:
+Earlier releases asked an _Update Service_ (a Tor v2 hidden service at `t527moy64zwxsfhb.onion`) for the latest versions of Tor and _The Onion Box_ and thereby sent a random per-launch UUID, the release of the box and the name & release of your operating system.
 
-- An UUID created newly each time during launch of the box.
-- The stamp of your _Box_ release
-- The name of the operating system hosting your box
-- The release information of the operating system hosting your box
-
-By intension these information are not at all sufficient to identify you (as a person) or the system hosting your box. They just allow to estimate the number of concurrently running instances of _The Onion Box_ and the diversity of the underlying operating systems.
-
-Please refer to [version.py](theonionbox/tob/version.py) to review the code:
-```python
-[...]
-
-proxies = {
-    'http': 'socks5h://' + proxy_address,
-    'https': 'socks5h://' + proxy_address
-}
-payload = {
-    'protocol': __VERSION_PROTOCOL__,
-    'version': self.version,
-    'system': self.system,
-    'release': self.release
-}
-
-address = 'http://t527moy64zwxsfhb.onion/{}/check.html'.format(self.id)
-
-r = None
-
-try:
-    r = requests.get(address, proxies=proxies, params=payload, timeout=10)
-except Exception as exc:
-    pass
-
-[...]
-
-```
+Tor removed v2 onion services in 2021, so that service is gone. This fork therefore **sends nothing at all**: the update check is switched off ([version.py](theonionbox/tob/version.py)) and the Tor versions shown in the dashboard are derived from your own node (`status/version/recommended`).
 
 ## Q&A
 ### I receive a _Not supported proxy scheme socks5h_ warning. What shall I do?

@@ -1,49 +1,26 @@
-<%
-    # Note that this file is not a valid *.html file!
-    # It is intended to be a bottlepy - style template
-    # used for the scripting part of TheOnionBox!
+%# Note that this file is not a valid *.html file!
+%# It is intended to be a bottlepy - style template
+%# used for the scripting part of TheOnionBox!
 
-%>
-
-<div id="login_form">
-    {{!header_row('Tor', 'Login Request')}}
+<div class="auth-card" id="login_form">
+    <h1>Sign in</h1>
+    <p>Enter the control password of your Tor node.</p>
 
     <form role="login" onsubmit="return do_login();">
+        <label class="field" for="login_pwd">Password</label>
+        <input type="password" class="input" id="login_pwd" name="login_pwd" tabindex="1"
+               autocomplete="current-password" autofocus>
 
-        <div class = "row">
-            <div class="{{box_datum_grid}}">
-                Password
-            </div>
-            <div class="col-3 col-md-3 box_value box_value_margin">
-                <div class="form-group">
-                    <input type="password" class="form-control" id='login_pwd' name='login_pwd' tabindex="1">
-                </div>
-            </div>
-        </div>
-
-        <div class = "row">
-            <div class="{{box_datum_grid}}">
-            </div>
-            <div class="{{box_value_grid}} box_value_margin">
-                <div class="form-group sk-three-bounce">
-                    <button type="submit" id="button_login" class="btn box_login_btn">Login</button>
-                    <div class="spnnr" style="width: 20px; display: inline-block;"></div>
-                    <div class="spnnr sk-child sk-bounce1"></div>
-                    <div class="spnnr sk-child sk-bounce2"></div>
-                    <div class="spnnr sk-child sk-bounce3"></div>
-                </div>
-            </div>
-        </div>
+        <button type="submit" id="button_login" class="btn">
+            <span>Login</span>
+            <span class="spnnr" style="display: none;">
+                <span class="sk-three-bounce"><span class="sk-child sk-bounce1"></span><span class="sk-child sk-bounce2"></span><span class="sk-child sk-bounce3"></span></span>
+            </span>
+        </button>
     </form>
-</div>
-<div id="info_expired" style="display: none">
-    <div class = "row">
-        <div class="{{box_datum_grid}}">
-        </div>
-        <div class="{{box_value_grid}} alert alert-danger box_value_margin">
-            Session expired. Please reload this page!
-        </div>
-    </div>
+
 </div>
 
-<hr>
+<div id="info_expired" class="auth-card" style="display: none; margin-top: 16px;">
+    <div class="alert" style="margin: 0;">Session expired. Please reload this page.</div>
+</div>

@@ -2,47 +2,7 @@
 %# It is intended to be a bottlepy - style template
 %# used for the scripting part of TheOnionBox!
 
-.overlay
-{
-    position: relative;
-}
-
-.overlay:after
-{
-  content: " ";
-  z-index: 100;
-  display: block;
-  position: absolute;
-  height: 100%;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.6);
-}
-
-.box_login_btn {
-    color: black;
-    background-color: #fff;
-    border-color: rgba(132, 54, 187, 100);
-}
-
-.box_login_btn:hover, .btn-bd-primary:active {
-  color: #fff;
-  background-color: rgba(132, 54, 187, 100);
-  border-color: rgba(132, 54, 187, 100);
-}
-
-#login_pwd:focus {
-    border-color: rgba(100, 178, 43, 100);
-    box-shadow: 0 0 0 .2rem rgba(100, 178, 43, .25);
-}
-
-
-.spnnr
-{
-  display: none;
-}
-
+.spnnr { display: none; }
 
 /*
  *  https://github.com/tobiasahlin/SpinKit/blob/master/css/spinners/7-three-bounce.css
@@ -82,9 +42,11 @@
   width: 80px;*/
   /*text-align: center;*/ }
   .sk-three-bounce .sk-child {
-    width: 20px;
-    height: 20px;
-    background-color: #333;
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 1px;
+    background-color: currentColor;
     border-radius: 100%;
 /*    display: inline-block;*/
     vertical-align: middle;

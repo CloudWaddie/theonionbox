@@ -63,7 +63,7 @@ class Linux(BaseSystem):
 
                 regex = r'(?:\d+: )(.+)(?::)'
                 interfaces = re.findall(regex, ip_link)
-            except subprocess.CalledProcessError:
+            except (subprocess.CalledProcessError, OSError):
                 try:
                     ifconfig = subprocess.check_output(['ifconfig', '-a'])
                     ifconfig = ifconfig.decode("utf-8")
@@ -81,7 +81,7 @@ class Linux(BaseSystem):
 
                     regex = r'(^.+)(?:: flags=)'
                     interfaces = re.findall(regex, ifconfig)
-                except subprocess.CalledProcessError:
+                except (subprocess.CalledProcessError, OSError):
                     return None
 
             # check if there's lease information for those interfaces
@@ -113,7 +113,7 @@ class Linux(BaseSystem):
                     # '192.168.178.1', '192.168.178.2'
 
                     if len(ntp_servers) > 0:
-                        regex = "(?:')(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})(?:',? ?)"
+                        regex = r"(?:')(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3})(?:',? ?)"
                         ntps = re.findall(regex, ntp_servers[0])
 
                         if len(ntps) > 0:
