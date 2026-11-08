@@ -118,3 +118,26 @@ export interface LiveResponse {
     data: Record<string, number | null>
   }
 }
+
+/* --- GET api/health --- */
+
+export type CheckStatus = 'ok' | 'warn' | 'fail'
+
+export interface HealthCheck { id: string; label: string; status: CheckStatus; detail: string }
+
+export interface HealthInfo { status: CheckStatus; checks: HealthCheck[] }
+
+export interface BridgeInfo {
+  or_port: string | null
+  ext_or_port: string | null
+  transports: { name: string; listen: string | null; plugin: string | null }[]
+  published_transports: string[]
+  distribution: string | null
+  publish: string | null
+  hashed_fingerprint: string | null
+  reachable: boolean | null
+  bridge_line: string | null
+  clients: { since: string | null; countries: { country: string; count: number }[]; ip_versions: Record<string, number>; total: number } | null
+}
+
+export interface HealthResponse { health: HealthInfo | null; bridge: BridgeInfo | null }

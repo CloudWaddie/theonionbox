@@ -130,6 +130,7 @@ class ControlCenter(BaseApp):
         self.pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix='cc-connect')
         self.connecting: Dict[str, Any] = {}      # api id -> Future
         self.errors: Dict[str, Dict[str, str]] = {}   # api id -> {'kind': 'auth' | 'offline', 'message': ...}
+        self.health_cache: Dict[str, Any] = {}        # api id -> (time, summary), the checks ask tor a lot
 
         frame = {'valid_status': ['frame'], 'no_session_redirect': self.redirect.path('/')}
 
@@ -244,6 +245,27 @@ class ControlCenter(BaseApp):
             self.connecting[api_id] = self.pool.submit(self._connect, api_id, node)
         return False
 
+    def _health(self, api_id: str, node: Node, tor) -> Optional[Dict[str, Any]]:
+        cached = self.health_cache.get(api_id)
+        if cached is not None and time.time() - cached[0] < 60:
+            return cached[1]
+
+        from .. import api, health
+
+        accounting = None
+        with contextlib.suppress(Exception):
+            accounting = tor.get_accounting_stats()
+        latest_stable, _ = api.latest_tor_versions(tor)
+        oo_details = node.onionoo.details if node.onionoo is not None else None
+
+        result = health.health(tor, oo_details, accounting, latest_stable)
+        summary = None
+        if result is not None:
+            summary = {'status': result['status'],
+                       'issues': [c['label'] for c in result['checks'] if c['status'] != health.OK]}
+        self.health_cache[api_id] = (time.time(), summary)
+        return summary
+
     def _card(self, api_id: str, since: Optional[float]) -> Dict[str, Any]:
         config = self._config_of(api_id)
         node = self._node(api_id)
@@ -316,6 +338,8 @@ class ControlCenter(BaseApp):
                 'streams': node.streams.count,
                 'bw': list(samples or []),
             })
+            with contextlib.suppress(Exception):
+                card['health'] = self._health(api_id, node, tor)
         except Exception as exc:
             self.log.debug(f'ControlCenter: {api_id}: {exc}')
             card['state'] = 'offline'

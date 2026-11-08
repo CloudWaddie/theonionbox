@@ -120,6 +120,7 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
               <Badge variant="outline">Tor {node.version}</Badge>
               {node.version_status && node.version_status !== 'recommended' && node.version_status !== 'unknown' && <Badge variant="warning">{node.version_status}</Badge>}
               {node.hibernating && <Badge variant="warning">{node.hibernating}</Badge>}
+              {node.health && node.health.status !== 'ok' && <Badge variant={node.health.status === 'fail' ? 'destructive' : 'warning'} title={node.health.issues.join(', ')}>{node.health.status === 'fail' ? 'Problem' : 'Check'}: {node.health.issues.slice(0, 2).join(', ')}</Badge>}
               {(node.flags ?? []).slice(0, 5).map((f) => <Badge key={f} variant="secondary">{f}</Badge>)}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{node.circuits ?? 0} circuits · {node.connections ?? 0} OR connections</p>

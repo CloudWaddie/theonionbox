@@ -1,4 +1,4 @@
-import type { History, LiveResponse, Overview } from './lib/types'
+import type { HealthResponse, History, LiveResponse, Overview } from './lib/types'
 
 // demo data for ?mock=1, so the ui works without a tor node
 export const mockOverview: Overview = {
@@ -22,6 +22,21 @@ const wave = (t: number, base: number, amp: number, period: number) => Math.max(
 function history(points: number, stepMs: number, fn: (i: number) => number | null): [number, number | null][] {
   const end = Date.now()
   return Array.from({ length: points }, (_, i) => [end - (points - i) * stepMs, fn(i)])
+}
+
+export const mockHealth: HealthResponse = {
+  health: {
+    status: 'warn',
+    checks: [
+      { id: 'version', label: 'Tor version', status: 'ok', detail: '0.4.9.11 is up to date.' },
+      { id: 'reachability', label: 'Reachability', status: 'ok', detail: 'The ORPort is reachable from the outside.' },
+      { id: 'descriptor', label: 'Descriptor', status: 'ok', detail: 'The server descriptor is published.' },
+      { id: 'uptime', label: 'Uptime', status: 'ok', detail: '12 days 4 hours.' },
+      { id: 'flags', label: 'Consensus flags', status: 'warn', detail: 'Not (yet) assigned: Stable.' },
+      { id: 'contact', label: 'ContactInfo', status: 'warn', detail: 'Not set: nobody can reach you if there is a problem with this relay.' },
+    ],
+  },
+  bridge: null,
 }
 
 export function makeMock(): () => LiveResponse {
