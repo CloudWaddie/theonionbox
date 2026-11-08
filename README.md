@@ -9,18 +9,24 @@
 
 ---
 ### The Onion Box v19: Preliminary documentation
+> This is a maintained fork of [ralphwetzel/theonionbox](https://github.com/ralphwetzel/theonionbox), brought up to date for current Python and Tor releases and equipped with a new web interface.
+
 ## The ControlCenter
 
-This latest version of The Onion Box introduces three changes of relevance:
+This latest version of The Onion Box introduces some changes of relevance:
 * The current versioning scheme was dropped in preference for [Calendar Versioning](www.calver.org). Thus v19.2 will become the successor of v4.3.1.
 * This fork requires Python 3.9 or later (tested up to 3.13) and Tor 0.4.x. The Onion Box v19.2 requires Python 3.6 or Python 3.7. If you need to operate with Python2, you have to stay with The Onion Box v4.3.1.
-* In addition to the well known (legacy) dashboard, suitable to monitor just a single Tor instance, The Onion Box now provides a ControlCenter mode to monitor a(ny) number of Tor nodes in parallel. That's how it looks like:
+* The web interface was rebuilt from scratch (React, Tailwind CSS and shadcn/ui). It comes in a light and a dark theme - following your system, switchable in the page header - and works on phones as well.
+* In addition to the dashboard for a single Tor node, The Onion Box provides a ControlCenter mode to monitor a(ny) number of Tor nodes - relays, bridges and clients - in parallel. That's how it looks like:
 
-![image](docs/images/cc.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/cc-dark.png">
+  <img alt="The Control Center" src="docs/images/cc-light.png">
+</picture>
 
 This is the shorttrack way to enable the ControlCenter mode:
 
-1) Setup your Onion Box as you did before - and you'll get the legacy dashboard (as before).
+1) Setup your Onion Box as you did before - and you'll get the dashboard for a single node (as before).
 2) Create a configuration file, that shall be used to store the configuration data of the ControlCenter. The easiest way to do this on a *nix-type system:
     ```
     (theonionbox) ~/theonionbox $ touch cc.cfg
@@ -32,11 +38,15 @@ This is the shorttrack way to enable the ControlCenter mode:
 (theonionbox) ~/theonionbox $ theonionbox -x cc.cfg
 ```
 
-4) Use the + - button in the upper right corner of the ControlCenter to add additional Tor nodes to be monitored.
+4) Use the _Add node_ button in the upper right corner of the ControlCenter to add Tor nodes to be monitored. _Test connection_ checks that a Tor ControlPort answers at the address you entered.
 
-5) The legacy dashboard with detail data for each node will show up if you follow the dedicated 'Show Details' link of each node.
+5) The dashboard with detail data for each node will show up if you follow the dedicated _Details_ button of a node; _All nodes_ leads you back.
 
-6) To re-arrange the nodes in your ControlCenter, just Drag & Drop them around.
+6) To re-arrange the nodes in your ControlCenter, use the arrows at the bottom of each card.
+
+The box connects to the nodes on its own, using the credentials stored in `cc.cfg` - so keep that file private. A node that does not answer never blocks the others. If you intend to run the box where others can reach it, [protect it with a password](#protecting-the-box-itself).
+
+Running in a container, e.g. on Coolify? See [Docker support](#the-onion-box-docker-support).
 
 Enjoy!
 
@@ -58,14 +68,12 @@ Above that, _The Onion Box_ is able to display Tor network status protocol data 
 
 ## Table of Contents
 - [The Web Interface](#the-web-interface)
-    - [Header](#header)
-    - [General Information](#general-information)
-    - [Configuration](#configuration)
-    - [Hidden Services](#hidden-services)
-    - [Local Status](#local-status)
-    - [Network Status](#network-status)
     - [Control Center](#control-center)
+    - [Overview](#overview)
+    - [Network](#network)
+    - [Node](#node)
     - [Messages](#messages)
+    - [Sign in & errors](#sign-in--errors)
 - [Getting Started](#getting-started)
     - [Scenario Assumption](#scenario-assumption)
     - [Supported environment](#supported-environment)
@@ -84,6 +92,7 @@ Above that, _The Onion Box_ is able to display Tor network status protocol data 
     - [Cookie Authentication](#cookie-authentication)
     - [Password Authentication](#password-authentication)
     - [No Authentication](#no-authentication)
+    - [Protecting the box itself](#protecting-the-box-itself)
 - [Advanced Operations: Control Interface](#advanced-operations-control-interface)
     - [Caution](#caution)
     - [ControlSocket](#controlsocket)
@@ -101,6 +110,7 @@ Above that, _The Onion Box_ is able to display Tor network status protocol data 
     - [... using systemd](#-using-systemd)
 - [*The Onion Box* behind Apache's mod_proxy](#the-onion-box-behind-apaches-mod_proxy)
 - [*The Onion Box* Docker support](#the-onion-box-docker-support)
+- [Development of the web interface](#development-of-the-web-interface)
 - [Usage Monitoring](#usage-monitoring)
 - [Q&A](#qa)
     - [I receive a _Not supported proxy scheme socks5h_ warning. What shall I do?](#i-receive-a-not-supported-proxy-scheme-socks5h-warning-what-shall-i-do)
@@ -111,50 +121,86 @@ Above that, _The Onion Box_ is able to display Tor network status protocol data 
 
 
 ## The Web Interface
-_The Onion Box_ generates a 'web page' that displays information regarding your Tor node. This information is split up into a number of sections. If a section is displayed and how the section looks like, depends on the data your box received from the Tor node monitored or knows about it from the Tor network status protocol. The web interface is generated on demand based on the latest data available.
+_The Onion Box_ serves a single page web app that displays information regarding your Tor node(s). What is displayed depends on the data your box received from the Tor node monitored and on what it knows about it from the Tor network status protocol. The page updates itself continuously; there is no need to reload it.
 
-> Tip: If a dedicated section is not displayed, just reload the page. Press `F5` or `command + R` to re-run the page creation process.
+The header carries the name of the node, a connection indicator (_Live_ / _Reconnecting_), the theme switch (light / dark / system) and - if you signed in with a password - a _Logout_ button. In ControlCenter mode an _All nodes_ button leads back to the overview of all nodes.
 
-The following chapters introduce each available section and provide some further details to explain the content displayed:
-
----
-
-### Header
-The Header of the page shows some basic information about the Tor node monitored.
-
-![image](docs/images/header.png)
-
-If you connected to this node via [password authentication](#password-authentication), you'll find a Logout Button in the upper right corner.
-
-If your box discovers that there is an update of it's code available, a button in the upper left corner is displayed, providing access to some further information - and a link to GitHub.
-
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-### General Information
-The section _Host | General Information_ displays information regarding the host system.
-
-![image](docs/images/generalinfo.png)
-
-This section is only available if the box is running at the same physical device as the Tor node monitored.
-
-_Latest Reboot_ as well as _Temperature_ are only available on supported operating systems.
-
-If the host provides several CPU cores, you may click on the _CPU Usage_ chart to get a popup window displaying a seperate usage chart for each core.
+The following chapters introduce the pages and provide some further details to explain the content displayed:
 
 ---
 
-### Configuration
-The section _Tor | Configuration_ displays the configuration parameters of the Tor node monitored:
+### Control Center
+The Control Center shows a card for every node: name, type (_Relay_, _Bridge_ or _Client_), the address it is reached at, a bandwidth chart with the current upload / download rate, the Tor version, the flags of the node and the number of circuits and connections.
 
-![image](docs/images/configuration.png)
 
-_Commandline_ lists the command line parameters used when launching the Tor node.
+A node is in one of these states:
 
-_Configuration Files_: A Tor node is configured by several sets of parameters. Those are Tor internal default settings, default settings defined in a configuration file referenced as _torrc.default_ (usually given by the Tor developers), user defined parameters (usually in a configuration file referenced as _torrc_) and finally parameters defined via the command line. The path to the two configuration files is indicated here.
+| State | Meaning |
+|---|---|
+| _Online_ | Connected and authenticated. |
+| _Connecting_ | The box is reaching out to the node. A node that doesn't answer may take up to half a minute to give up - the other nodes are not affected. |
+| _Login needed_ | The password or cookie is missing or wrong. Edit the node to fix it. |
+| _Offline_ | Nothing answers: check address, port, firewall and the `ControlPort` setting of the node. |
 
-The rest of this section displays all parameters that differ from the Tor internal default settings - except Hidden Service configuration settings (which are displayed in their own section).
+_Add node_ and the pencil on each card open the node dialog:
 
-If the curser hovers over the name of a configuration parameter, a hashtag is displayed providing a link to the Tor documentation. On mobile devices, you have to click on the name to make the hashtag appear.
+![image](docs/images/node-dialog.png)
+
+_Connection_ is the way to reach the node: a `ControlPort` (TCP), a `ControlPort` via Tor (e.g. published as hidden service) or a local `ControlSocket`. Passwords and cookies are stored in the configuration file of the ControlCenter and never sent back to the browser. For remote nodes using _Cookie Authentication_ paste the _Control cookie_ - see [Cookie Authentication](#cookie-authentication).
+
+---
+
+### Overview
+The page _Overview_ displays the traffic of the node and - if the box is running at the same physical device as the Tor node monitored - the load of the host system.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/overview-dark.png">
+  <img alt="Overview page" src="docs/images/overview-light.png">
+</picture>
+
+_Upload_ and _Download_ show the current rate and the total, _Circuits_ and _OR connections_ the current number of circuits, streams and connections to other relays.
+
+The _Bandwidth_ chart displays the traffic as reported by the Tor node. The buttons on the right switch the resolution from _Live_ (one second) up to _12 hours_; the longer intervals are stored by the box and survive a restart.
+
+_CPU_ (including a bar for each core) and _Memory_ are only available if the box and the Tor node run on the same device. If the host provides a temperature sensor, the temperature is charted as well. _Up since_ (the latest reboot) and _Temperature_ are only available on supported operating systems.
+
+If the Tor node has an _Accounting_ limit configured, the panel _Accounting_ shows how much of the limit is used, the status (_awake_ or hibernating) and when the interval ends.
+
+---
+
+### Network
+The page _Network_ displays information provided by [Onionoo](http://onionoo.torproject.org), the Tor network status protocol, concerning the Tor node monitored.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/network-dark.png">
+  <img alt="Network page" src="docs/images/network-light.png">
+</picture>
+
+Those information are fetched regularly from Onionoo. If not available (which could happen when you connect to a node for the first time or when operating via slow connections), the page will show up as soon as the data arrived.
+
+_Network status_ lists what the network knows about your node: addresses, platform, contact, flags, when it was first and last seen and when it was restarted. Only portions of it are available if the Tor node monitored is operated as a bridge. This page is not available for Tor clients.
+
+_Location_ by default provides the information Onionoo knows about the location of the Tor node. By special configuration you can advise the box to query the location of the IP address of the Tor node monitored from a user provided GeoIP City DB.
+
+_Bandwidth history_ displays the long term bandwidth data as known to Onionoo. The number of available charts depends on the age of the Tor node monitored. You may switch the period displayed via the buttons next to the chart.
+
+_Path selection_ displays the weights history data as known to Onionoo: the probability that clients choose your node as guard, middle or exit - and its share of the consensus. The same period buttons apply.
+
+---
+
+### Node
+The page _Node_ displays what the Tor node knows about itself and its configuration.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/node-dark.png">
+  <img alt="Node page" src="docs/images/node-light.png">
+</picture>
+
+_Tor_ lists the version (and whether it is the latest recommended one), the version status, process id, user, mode, nickname, fingerprint and flags of the node. The latest versions are read from the Tor node itself.
+
+_Hidden services_ displays the configuration parameters for the hidden service(s) of the Tor node monitored. It is only available if at least one hidden service is configured on this Tor node.
+
+_Configuration_ displays all parameters that differ from the Tor internal default settings - except Hidden Service configuration settings (which are displayed in their own panel). The filter field narrows the list down.
 
 There are some parameters that can be defined (e.g. via the command line), despite Tor doesn't signal back that those are set. The following table lists those parameters:
 
@@ -164,74 +210,34 @@ There are some parameters that can be defined (e.g. via the command line), despi
 
 ---
 
-### Hidden Services
-The section _Tor | Hidden Services_ displays the configuration parameters for the hidden service(s) of the Tor node monitored:
-
-![image](docs/images/hidden.png)
-
-This section is only available if at least one hidden service is configured on this Tor node.
-
----
-
-### Local Status
-The section _Tor | Local Status_ displays information that the Tor node monitored knows about itself and its hosting environment.
-
-![image](docs/images/local.png)
-
- ---
-
-### Network Status
-The section _Tor | Network Status_ displays information provided by [Onionoo](http://onionoo.torproject.org), the Tor network status protocol, concerning the Tor node monitored.
-
-![image](docs/images/network.png)
-
-Those information are fetched regularly from Onionoo. If not available (which could happen when you connect to a node for the first time or when operating via slow connections), you will be asked to reload the page.
-
-Only portions of this section are available if the Tor node monitored is operated as a bridge.
-
-_Location_ by default provides the information Onionoo knows about the location of the Tor node & shows the location on a map.
-
-![image](docs/images/location.png)
-
-By special configuration you can advise the box to query the location of the IP address of the Tor node monitored from a user provided GeoIP City DB.
-
-_Bandwidth_ displays the bandwidth history data as known to Onionoo.
-
-![image](docs/images/bandwidth.png)
-
-The number of available charts depends on the age of the Tor node monitored. You may switch the chart displayed via the _History Charts_ buttons.
-
-_Weights_ displays the weights history data as known to Onionoo.
-
-![image](docs/images/weights.png)
-
-The number of available charts depends on the age of the Tor node monitored. You may switch the chart displayed via the _History Charts_ buttons.
-
----
-### Control Center
-~~Do you intend to monitor more than one Tor node? Are you interested in the Oninooo data of other Tor nodes? The section _Box | Control Center_ provides that functionality.~~
-
-![image](docs/images/control.png)
-
-#### Search
-~~Enter a search phrase - which should be a (part of a) nickname of a Tor node or a (portion of a) fingerprint - into the _Search_ field and press enter. This search phrase will be used to query Onionoo - and the result presented in a popup bubble. If the search was successful, you may click on the links provided to display the Tor network status protocol data of that Tor node.~~
-
-#### Controlled Hosts
-~~If you provided access control information for additional Tor nodes in the configuration file of your box, those nodes are listed under _Controlled Hosts_. Click on the fingerprint and you will be connected to that Tor node.~~
-
----
-
 ### Messages
-The section _Box | Messages_ displays the messages received from the Tor node(s) monitored and from your box.
+The page _Messages_ displays the messages received from the Tor node monitored and from your box.
 
-![image](docs/images/messages.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/messages-dark.png">
+  <img alt="Messages page" src="docs/images/messages-light.png">
+</picture>
 
-You can alter the noisiness of the Tor node monitored by mean of the _Level_ selector buttons. Be advised that it takes some seconds to forward a message level change to the node.
-> By default, _INFO_ and _DEBUG_ level messages are not forwarded to the monitoring application. _INFO_ is babblative - and _DEBUG_ even more. Both levels create a lot of traffic. Use those settings with caution!
-
-This section is only available for controlled nodes.
+You can alter the noisiness of the Tor node monitored by mean of the level switches. Be advised that it takes some seconds to forward a message level change to the node. Repeated messages are cumulated.
+> By default, _INFO_ and _DEBUG_ level messages are not forwarded to the monitoring application. _INFO_ is babblative - and _DEBUG_ even more. Both levels create a lot of traffic. Use those settings with caution! _DEBUG_ switches off by itself after 30 seconds.
 
 > The message system of _The Onion Box_ cannot be manipulated via the web interface. If you are interested in receiving _DEBUG_ or _TRACE_ message from your box, you have to set the appropriate [command line](#command-line-parameters) parameter.
+
+---
+
+### Sign in & errors
+If the Tor node you connect to demands a password, the box asks for it:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/login-dark.png">
+  <img alt="Sign in" src="docs/images/login-light.png">
+</picture>
+
+Wrong password? You'll be sent back to the sign in with a message. If the box fails to connect to the node at all, it tells you why:
+
+![image](docs/images/error.png)
+
+If the box itself is [protected by a password](#protecting-the-box-itself), you'll see a similar sign in page before anything else.
 
 ---
 
@@ -249,30 +255,26 @@ So we assume that you're logged in as user **pi**, operating on the **PIXEL** de
 <p  align="center"><img src='docs/images/raspbian.png' width='50%'></p>
 
 ### Supported environment
-_The Onion Box_ is a Python application, developed with v2.7 and v3.6.
+_The Onion Box_ is a Python application. This version is developed and tested with Python 3.9 to 3.13 and Tor 0.4.x.
 
 By default, it should operate successfully on every platform providing Python support. Confirmation can be given that it works properly in following environments:
-- Bananian | [Jessie](https://github.com/ralphwetzel/theonionbox/issues/7#issuecomment-346902660)
-- Debian | Jessie
+- Linux (Debian, Ubuntu, Raspbian) - also as [Docker](#the-onion-box-docker-support) container
 - FreeBSD
 - macOS | Darwin
-- Raspbian | Jessie, Stretch
-- Ubuntu 16.04
 - Windows 10
 
 The Python version you are operating with (per default), can be verifyed via a terminal / command line by the issuing `python --version`:
 ```
 ~ $ python --version
-python 2.7.9
+Python 3.12.3
 ```
-As said, this displays the version of the _default_ Python interpreter. Explicitely you may use as well `python2 --version` or `python3 --version` to ask for the version numbers of the dedicated releases.
+This displays the version of the _default_ Python interpreter. Explicitely you may use as well `python3 --version` to ask for the version number of the dedicated release.
 
-_The Onion Box_ is designed to run with either Python > 2.7.9 or Python > 3.6. If _none_ of your Python versions fit these reqirements, check [the Python page](http://www.python.org) for procedures how to upgrade your installation. On a Linux system, you could e.g. run `apt-get` like
+_The Onion Box_ is designed to run with Python 3.9 or later. If your Python is older, check [the Python page](http://www.python.org) for procedures how to upgrade your installation. On a Linux system, you could e.g. run `apt-get` like
 ```
-~ $ sudo apt-get install --upgrade python
 ~ $ sudo apt-get install --upgrade python3
 ```
-to install the latest versions available in the repositories.
+to install the latest version available in the repositories.
 
 ### System Preparation
 #### sudo
@@ -449,7 +451,7 @@ Your box will perform some steps to initialize and then wait for connections at 
 At that stage, open a webbrowser from the PIXEL desktop and connect to your box at the given address (here: `http://127.0.0.1:8080`).  
 
 It is yet very likely, that you'll receive an error message like this one:
-<p  align="center"><img src='docs/images/connectionerror.png' width='80%'></p>
+<p  align="center"><img src='docs/images/error.png' width='60%'></p>
 
 Don't be disappointed! As your box explained during it's launch procedure, it is
 ```
@@ -526,13 +528,17 @@ _The Onion Box_ depends on some libraries developed and provided by third partie
 If you perform a non-`pip` (manual) installation (e.g. directly from the GitHub repository), you have to ensure that those dependencies are installed accordingly:
 
 * [psutil](https://pypi.python.org/pypi/psutil)
-* [stem](https://pypi.python.org/pypi/stem)
+* [stem4tob](https://pypi.python.org/pypi/stem4tob) (a maintained fork of [stem](https://stem.torproject.org))
 * [bottle](https://pypi.python.org/pypi/bottle)
+* [cheroot](https://pypi.python.org/pypi/cheroot)
+* [click](https://pypi.python.org/pypi/click)
+* [ConfigUpdater](https://pypi.python.org/pypi/configupdater)
 * [APScheduler](https://pypi.python.org/pypi/apscheduler)
 * [PySocks](https://pypi.python.org/pypi/PySocks)
-* [tzlocal](https://pypi.python.org/pypi/tzlocal)
+* [requests](https://pypi.python.org/pypi/requests)
+* [pytz](https://pypi.python.org/pypi/pytz) and [tzlocal](https://pypi.python.org/pypi/tzlocal)
 
-To operate a box in an Python 2.7 environment, you need as well the [futures](https://pypi.python.org/pypi/futures/) module.
+The web interface needs no Python module: it ships pre-built with the package (see [Development of the web interface](#development-of-the-web-interface)).
 
 If you intend to use the advanced GeoIP2 functionality, you have to install as well the module [geoip2](https://pypi.python.org/pypi/geoip2).
 
@@ -867,14 +873,19 @@ Monitoring a Tor node in the end just demands two prerequisites: Access to an in
 To clarify one topic upfront: You don't need to tell your box the way of authentication it shall use. This topic will transparently be negotiated between the Tor node and the _Box_.
 
 ### Cookie Authentication
-By default (defined in the configuration file [`torrc.default`](#configuration)) a Tor node offers _Cookie Authentication_ as standard authentication method.  
+By default (defined in the configuration file `torrc.default` (see the [Tor manual](https://www.torproject.org/docs/tor-manual.html.en))) a Tor node offers _Cookie Authentication_ as standard authentication method.  
 
 According to the Tor manual, when using _Cookie Authentication_, the Tor node allows "connections on the control port when the connecting process knows the contents of a file named `control_auth_cookie`, which Tor will create in its data directory".  
-This implies that _Cookie Authentication_ can only be used locally - which means that this authentication method is only suitable if you have installed _The Onion Box_ on the same system that hosts the Tor node you intend to monitor.  
-To access `control_auth_cookie`, your box needs to have the correct privileges. This can be achieved most easily by running it as the same user as the Tor node (which e.g. is _debian-tor_ on Debian systems):
+This implies that your box needs to be able to read this file - which is the case if _The Onion Box_ runs on the same system that hosts the Tor node (or shares a volume with it). To access `control_auth_cookie`, your box needs to have the correct privileges. This can be achieved most easily by running it as the same user as the Tor node (which e.g. is _debian-tor_ on Debian systems):
 ```
 sudo -u debian-tor python theonionbox.py
 ```
+
+For a node on **another machine** (monitored by the [ControlCenter](#the-controlcenter)) you can paste the content of the cookie into the _Control cookie_ field of the node dialog. Print it on the node with
+```
+od -An -v -tx1 /var/lib/tor/control_auth_cookie | tr -d ' \n'
+```
+(the path depends on the `DataDirectory` of the node). The box then authenticates by means of `SAFECOOKIE`: the cookie itself is never sent over the network. Tor creates a new cookie each time it starts - you have to update it after a restart of the node.
 
 ### Password Authentication
 By definition of the `HashedControlPassword` parameter in the `torrc` configuration file of your Tor node, you can advise Tor to operate with _Password Authentication_.
@@ -885,7 +896,10 @@ _Password Authentication_ provides a way of access control to your Tor node even
 
 If your box discovers that _Password Authentication_ is required, it will ask for that password providing a Login Screen:
 
-![Login Screen](docs/images/login.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/login-dark.png">
+  <img alt="Login Screen" src="docs/images/login-light.png" width="60%">
+</picture>
 
 
 ### No Authentication
@@ -894,6 +908,15 @@ In that case it may be necessary to explicitely turn off _Cookie Authentication_
 ```
 CookieAuthentication 0
 ```
+
+### Protecting the box itself
+The box has no login of its own: whoever can reach it can watch your nodes - and, in ControlCenter mode, make the box connect to any address. As long as the box listens on `127.0.0.1` that's you only. If it is reachable by others, protect it with a password (or better: a passphrase):
+
+```
+TOB_ACCESS_PASSWORD='correct horse battery staple' theonionbox -x cc.cfg
+```
+
+or `--access_password` on the command line, or `access_password` in the `[TheOnionBox]` section of the [configuration file](#configuration-by-file). The box then shows a sign in page before anything else. Too many wrong attempts lock the sender out for a few minutes. It is a cookie login (not HTTP Basic authentication), so it doesn't interfere with the logins to the Tor nodes. The box warns during start if it listens on a public address without it.
 
 ## Advanced Operations: Control Interface
 Monitoring a Tor node in the end just demands two prerequisites: Access to an interface to control the node and a way to authenticate against the node. Therefore _Advanced Operations_ is all about the different ways to provide a **control interface** and the different ways of [authentication](#advanced-operations-authentication) .
@@ -906,7 +929,7 @@ Providing a socket ensures that only a process local to the system is able to co
 If you mis-configure a `ControlPort`, you might endanger the security of your system; if you mis-configure a `ControlSocket`, you just cannot connect.
 
 ### ControlSocket
-By default (defined in the configuration file [`torrc.default`](#configuration)) a Tor node offers a `ControlSocket` as standard controlling interface (at least on Unix and Unix-like systems). This default socket is e.g. defined as `/var/run/tor/control`.
+By default (defined in the configuration file `torrc.default` (see the [Tor manual](https://www.torproject.org/docs/tor-manual.html.en))) a Tor node offers a `ControlSocket` as standard controlling interface (at least on Unix and Unix-like systems). This default socket is e.g. defined as `/var/run/tor/control`.
 
 A `ControlSocket` can only been accessed locally; therefore you need to install _The Onion Box_ on the same system that hosts the Tor node you intend to monitor.
 To access a `ControlSocket` the process trying to connect needs to have the correct privileges. This can be achieved most easily by running your box as the same user as the Tor node (which e.g. is _debian-tor_ on Debian systems): `sudo -u debian-tor python theonionbox.py`
