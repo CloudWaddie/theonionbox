@@ -11,95 +11,23 @@
 
     license = License()
 %>
-<div class="row">
-    <div class="{{box_datum_grid}}">
-    </div>
-    <div class="{{box_value_grid}}">
-        <div style="color: grey; font-size: 10px; font-weight: 300">
-            <a href="http://www.theonionbox.com/#readme" target="_blank">The Onion Box</a> |
-            Version v{{box_stamp}} | Copyright &copy; 2015 - 2020 Ralph Wetzel | License:
-            <a role="button" data-toggle="collapse" href="#MIT"
-               aria-expanded="false" aria-controls="MIT">MIT</a>
-        </div>
-    </div>
+
+<div class="auth-footer">
+    <a href="https://github.com/cloudwaddie/theonionbox" target="_blank" rel="noreferrer">The Onion Box</a>
+    · v{{box_stamp}} · {{!license.get('copyright')}} · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noreferrer">MIT License</a>
+    <details>
+        <summary>License &amp; credits</summary>
+        <pre>{{license.get('header')}}
+
+{{' '.join(license.get('1').split())}}
+
+{{' '.join(license.get('2').split())}}
+
+{{' '.join(license.get('3').split())}}
+
+{{' '.join(license.get('independence').split())}}
+
+Tor and the Tor Onion Logo are registered trademarks of The Tor Project. Onionoo is a service of The Tor Project.
+The dashboard uses the Geist fonts (SIL Open Font License 1.1) by Vercel.</pre>
+    </details>
 </div>
-
-<div class="row">
-    <div class="{{box_datum_grid}}">
-    </div>
-    <div class="{{box_value_grid}}">
-        <div style="color: grey; font-size: 10px; font-weight: 300">
-            Tor and the Tor Onion Logo are registered trademarks &reg of
-            <a href="https://torproject.org" target="_blank">The Tor Project</a>.
-            Onionoo is a service of The Tor Project.
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="{{box_datum_grid}}">
-    </div>
-    <div class="{{box_value_grid}}">
-        <div style="color: grey; font-size: 10px; font-weight: 300">
-            The Onion Box uses the great <a href="https://latofonts.com" target="_blank">Lato</a> font. | Copyright
-            Łukasz Dziedzic | License:
-            <a href="http://scripts.sil.org/OFL" target="_blank">SIL Open Font License 1.1</a>.
-        </div>
-    </div>
-</div>
-
-<!--<div class="row">
-    <div class="{{box_datum_grid}}">
-    </div>
-    <div class="{{box_value_grid}}">
-        <div style="color: grey; font-size: 10px; font-weight: 300">
-            Icons from <a href="https://fontawesome.com" target="_blank">Font Awesome Free</a> | Copyright
-            @fontawesome | <a href="https://fontawesome.com/license/free" target="_blank">
-            License</a> @ Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT.
-        </div>
-    </div>
-</div>-->
-
-<div class="collapse" id="MIT">
-
-    <hr>
-
-    {{!header_row('', license.get('header'))}}
-    <div class='row'>
-        <div class='{{box_datum_grid}}'></div>
-        <div class='{{box_value_grid}} box_value_margin'>
-            {{!license.get('copyright')}}
-        </div>
-    </div>
-    <div class="row">
-        <div class="{{box_datum_grid}}">
-        </div>
-        <div class="{{box_value_grid}} box_value_margin">
-            {{license.get('1')}}
-        </div>
-    </div>
-    <div class="row">
-        <div class="{{box_datum_grid}}">
-        </div>
-        <div class="{{box_value_grid}} box_value_margin">
-            {{license.get('2')}}
-        </div>
-    </div>
-    <div class="row">
-        <div class="{{box_datum_grid}}">
-        </div>
-        <div class="{{box_value_grid}} box_value_margin">
-            {{license.get('3')}}
-        </div>
-    </div>
-    <hr>
-    {{!header_row('', 'Statement of Independence')}}
-    <div class="row">
-        <div class="{{box_datum_grid}}">
-        </div>
-        <div class="{{box_value_grid}} box_value_margin">
-            {{license.get('independence')}}
-        </div>
-    </div>
-</div>
-<br>

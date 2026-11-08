@@ -125,7 +125,15 @@ class VersionManager(object):
         self.release = release
         self.last_mod = ''
 
+    # The original update service lived at a Tor v2 onion address ('t527moy64zwxsfhb.onion').
+    # Tor dropped v2 onion services in 0.4.6 (2021), so that service can't be reached any more.
+    # Until a replacement exists nothing is sent anywhere; Tor versions are derived from Tor itself (see api.py).
+    UPDATE_SERVICE_AVAILABLE = False
+
     def update(self):
+
+        if not self.UPDATE_SERVICE_AVAILABLE:
+            return False
 
         # No service without proxy!
         if self.proxy is None:

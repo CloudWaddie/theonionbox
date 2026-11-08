@@ -1,140 +1,175 @@
 %# Note that this file is not a valid *.css file!
 %# It is intended to be a bottlepy - style template
-%# used for the scripting part of TheOnionBox!
+%# used for the login / error pages of TheOnionBox!
+%# (The dashboard itself is the single page app in 'web/', built from 'frontend/'.)
 
 <%
     base_path = get('virtual_basepath', '') + '/'
 %>
 
-% navbar_height = 50
+/* Vercel-flavoured tokens; follows the system theme. */
+:root {
+  --bg: #ffffff;
+  --fg: #171717;
+  --muted: #666666;
+  --card: #ffffff;
+  --border: #eaeaea;
+  --input: #dcdcdc;
+  --primary: #171717;
+  --primary-fg: #fafafa;
+  --danger: #e5484d;
+  --danger-bg: rgba(229, 72, 77, .08);
+  --radius: 8px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
 
-/* Bootstrap Customizations
-@grid-float-breakpoint: 101%
-@navbar-height: 70px
-@navbar-default-bg: #64b22b (the kind of green we use!)
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0a0a;
+    --fg: #ededed;
+    --muted: #a1a1a1;
+    --card: #101010;
+    --border: #262626;
+    --input: #2e2e2e;
+    --primary: #fafafa;
+    --primary-fg: #171717;
+    --danger: #ff6369;
+    --danger-bg: rgba(255, 99, 105, .1);
+    color-scheme: dark;
+  }
+}
 
-*/
+* { box-sizing: border-box; }
 
+html, body { margin: 0; min-height: 100%; }
 
-%# <!-- styles start here! -->
-
-html,
 body {
-  overflow-x: hidden; /* Prevent scroll on narrow devices */
-  min-width: 640px;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-    %# to compensate for the fixed NavBar
-    /* padding-top: 50px; */
-    font-family: "LatoLatinWeb";
-    position: relative;
+a { color: inherit; text-underline-offset: 3px; }
+
+.auth {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
 }
 
-/*p {
-    margin: 5px 0px 5px 0px;
-}*/
-
-%# to compensate the coverage of the NavBar when jumping within the page
-.hash_target:before {
-  display: block;
-  content: " ";
-  margin-top: -10px;
-  height: 10px;
-  visibility: hidden;
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 18px;
+  letter-spacing: -.01em;
+  margin-bottom: 24px;
 }
 
-.box_header {
-    background-image: linear-gradient(to right, rgba(100, 178, 43, 100), rgba(75, 160, 39, 100));
+.auth-brand svg { width: 28px; height: 28px; }
 
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .04);
 }
 
-.box_title {
-	font-family: "LatoLatinWebBlack";
-    font-size: 63px;
-    color: white;
-    text-shadow: 1px 1px 2px #23300e;
-
+.auth-card h1 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.02em;
 }
 
-.box_subtitle {
-    font-size: 21px;
-	font-family: "LatoLatinWebLight";
-    color: white;
-    background-color: rgba(132, 54, 187, 100);
+.auth-card p { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+
+.auth-meta {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+  word-break: break-all;
 }
 
-.box_powered {
-    font-size: 16px;
-	font-family: "LatoLatinWebThin";
-    color: white;
+label.field { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+
+.input {
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
 }
 
+.input:focus { border-color: var(--fg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 12%, transparent); }
+.input:disabled { opacity: .6; }
 
-.box_bold {
-	font-family: "LatoLatinWebBlack";
-    font-size: 36px;
-    text-align: right;
-    min-width: 200px;
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 40px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 500;
+  color: var(--primary-fg);
+  background: var(--primary);
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity .15s;
 }
 
-.box_section {
-	font-family: "LatoLatinWebLight";
-    font-size: 36px;
-    text-align: left;
+.btn:hover { opacity: .88; }
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.alert {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, transparent);
+  border-radius: var(--radius);
+  word-break: break-word;
 }
 
-.box_datum {
-	font-family: "LatoLatinWebLight";
-    font-size: 19px;
-    text-align: right;
-    min-width: 200px;
+.overlay { opacity: .7; pointer-events: none; }
+
+.auth-footer {
+  margin-top: 24px;
+  max-width: 400px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
 }
 
-.box_datum_bold {
-	font-family: "LatoLatinWebBlack";
-    font-size: 19px;
-    text-align: right;
-    min-width: 200px;
-}
-
-.box_datum_modal {
-	font-family: "LatoLatinWebLight";
-    font-size: 19px;
-    text-align: right;
-}
-
-.box_value {
-	font-family: "LatoLatinWeb";
-    font-size: 19px;
-    text-align: left;
-
-}
-
-.box_value_columns {
-    -webkit-column-count: 3; /* Chrome, Safari, Opera */
-    -moz-column-count: 3; /* Firefox */
-    column-count: 3;
-}
-
-/* this could/should be merged into box_value if usage of <p> for all values is re-organized */
-.box_value_margin {
-    margin: 0 0 5px;
-}
-
-.box_canvas {
-    border-radius: .25rem;
-    /*border-width: 4px;*/
-    /*border-style: solid;*/
-    /*border-color: #44ee44;*/
-}
-
-
-%# /* http://stackoverflow.com/questions/20760047/upside-down-caret */
-.caret.caret-reversed {
-    border-top-width: 0;
-    border-bottom: 4px solid #000000;
-}
+.auth-footer details { margin-top: 12px; text-align: left; }
+.auth-footer summary { cursor: pointer; text-align: center; }
+.auth-footer pre { white-space: pre-wrap; font-family: var(--mono); font-size: 11px; line-height: 1.5; }
 
 <%
     from bottle import TemplateError
@@ -159,112 +194,3 @@ body {
         end
     end
 %>
-
-
-.box_name {
-   % #// Animation
-   -webkit-transition: all 0.4s ease;
-   transition: all 0.4s ease;
-   opacity: 1
-}
-
-.box_name.hide_name {
-    opacity: 0;
-}
-
-.navbar-default.noline {
-    border-color: transparent;
-}
-
-% # /* Styles for the Upload/Download Glyphs */
-
-@font-face {
-  font-family: 'tob';
-  src:  url('{{base_path}}{{session_id}}/fonts/tob.eot?5gsh4g');
-  src:  url('{{base_path}}{{session_id}}/fonts/tob.eot?5gsh4g#iefix') format('embedded-opentype'),
-    url('{{base_path}}{{session_id}}/fonts/tob.ttf?5gsh4g') format('truetype'),
-    url('{{base_path}}{{session_id}}/fonts/tob.woff?5gsh4g') format('woff'),
-    url('{{base_path}}{{session_id}}/fonts/tob.svg?5gsh4g#tob') format('svg');
-  font-weight: normal;
-  font-style: normal;
-}
-
-[class^="icon-"], [class*=" icon-"] {
-  /* use !important to prevent issues with browser extensions that change fonts */
-  font-family: 'tob' !important;
-  speak: none;
-  font-style: normal;
-  font-weight: normal;
-  font-variant: normal;
-  text-transform: none;
-  line-height: 1;
-
-  /* Better Font Rendering =========== */
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.icon-download:before {
-  content: "\e900";
-}
-.icon-upload:before {
-  content: "\e901";
-}
-
-
-.form-group input[type="checkbox"] {
-    display: none;
-}
-
-.form-group input[type="checkbox"] + .btn-group > label span {
-    width: 20px;
-}
-
-.form-group input[type="checkbox"] + .btn-group > label span:first-child {
-    display: none;
-}
-.form-group input[type="checkbox"] + .btn-group > label span:last-child {
-    display: inline-block;
-}
-
-.form-group input[type="checkbox"]:checked + .btn-group > label span:first-child {
-    display: inline-block;
-}
-.form-group input[type="checkbox"]:checked + .btn-group > label span:last-child {
-    display: none;
-}
-
-
-
-.config_group {
-    overflow: hidden;
-    text-align: left;
-}
-.config_group:after {
-    background-color: lightgrey;
-    content: "";
-    display: inline-block;
-    height: 1px;
-    position: relative;
-    vertical-align: middle;  /* middle seemed to be more obvious, yer super looks better (in chrome) */
-    width: 100%;
-}
-
-.config_group:after {
-    left: 0.5em;
-    margin-right: -100%;
-}
-
-div.smoothie-chart-tooltip {
-    background: #b9b9b9;
-    padding: 1em;
-    margin-top: 5px;
-    font-family: "LatoLatinWebLight";
-    color: white;
-    font-size: 10px;
-    pointer-events: none;
-}
-
-/* Bootstrap Toggle Styles */
-% # include('bootstrap-toggle/css/bootstrap-toggle.min.css')
-% # include('bootstrap-switch/css/bootstrap-switch.min.css')

@@ -1,11 +1,12 @@
 import contextlib
 import json
 import pathlib
+from pathlib import Path
 from threading import Timer
 from typing import Optional
 import uuid
 
-from bottle import Bottle, HTTPError, request, template, static_file
+from bottle import Bottle, HTTPError, request, response, template, static_file
 
 from ..apps import BaseApp
 from ..geoip import GeoIPOO
@@ -106,9 +107,19 @@ class Dashboard(BaseApp):
                        callback=self.get_index,
                        **config)
 
+        self.app.route('/<session>/assets/<filename:path>',
+                       method='GET',
+                       callback=self.get_asset,
+                       **config)
+
         config = {
             'valid_status': ['ok', 'auto']
         }
+
+        self.app.route('/<session>/api/overview',
+                       method='GET',
+                       callback=self.get_overview,
+                       **config)
 
         self.app.route('/<session>/data.html',
                        method='POST',
@@ -185,8 +196,8 @@ class Dashboard(BaseApp):
         # We failed to connect to Tor and have to admit this now!
         session['status'] = 'error'
 
-        session['stylesheets'] = ['bootstrap.css', 'latolatin/latolatinfonts.css', 'box.css']
-        session['scripts'] = ['jquery.js', 'bootstrap.js', 'box.js']
+        session['stylesheets'] = ['box.css']
+        session['scripts'] = ['jquery.js', 'box.js']
 
         section_config = {}
         section_config['header'] = {
@@ -228,8 +239,8 @@ class Dashboard(BaseApp):
         # Standard login Page delivery
         session['auth'] = 'digest' if node.controller.password is not None else 'basic'
 
-        session['stylesheets'] = ['bootstrap.css', 'latolatin/latolatinfonts.css', 'box.css']
-        session['scripts'] = ['jquery.js', 'bootstrap.js', 'auth.js', 'box.js']
+        session['stylesheets'] = ['box.css']
+        session['scripts'] = ['jquery.js', 'auth.js', 'box.js']
 
         section_config = {}
         section_config['header'] = {
@@ -534,22 +545,9 @@ class Dashboard(BaseApp):
 
         session['sections'] = sections
 
-        session['stylesheets'] = ['bootstrap.css', 'latolatin/latolatinfonts.css', 'glide.core.css', 'glide.theme.css']
-        session['scripts'] = ['jquery.js', 'bootstrap.js', 'smoothie.js', 'chart.js', 'scrollMonitor.js', 'glide.js']
-
-        # to ensure, that 'box.xxx' is the latest element...
-        session['stylesheets'].append('box.css')
-        session['scripts'].append('box.js')
-
-        import socket
-
-        if tor.is_localhost() is True:
-            at_location = socket.gethostname()
-        else:
-            try:
-                at_location = tor.get_info('address')
-            except:
-                at_location = 'Remote Location'
+        # The dashboard is a single page app (see frontend/ -> web/); it only needs the files below.
+        session['stylesheets'] = []
+        session['scripts'] = []
 
         if session['logout:show'] is not None:
             # 20200102: Currently only used if password for default node provided via command line.
@@ -557,17 +555,8 @@ class Dashboard(BaseApp):
         else:
             show_logout = session['status'] != 'auto' or session['password'] is not None
 
-        section_config = {}
-        section_config['header'] = {
-            'logout': show_logout,
-            'title': tor.nickname,
-            'subtitle': f"Tor {tor.version_short} @ {at_location}<br>{fingerprint}",
-            'powered': f"monitored by <b>The Onion Box</b> v{self.config.stamped_version}"
-        }
-
         def get_lines(info):
-            info_lines = info.split('\n')
-            return len(info_lines)
+            return len([line for line in (info or '').split('\n') if line.strip()])
 
         transport = {
             'or': get_lines(tor.get_info('orconn-status')),
@@ -578,77 +567,54 @@ class Dashboard(BaseApp):
         # This is the initial session token
         session['token'] = uuid.uuid4().hex
 
-        # Marker for the map
-        icon_marker = "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAA" \
-                      "DsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAHBhaW50Lm5ldCA0LjAuOWwzfk4AAAC9SURBVDhPpZK9DcJADIVTUFBcmTXo" \
-                      "KTNAxqFIiRR6RonEAhQMQUmRMSiO90U2csSBAhSfdLbf8/25yjk/OWxOSXRiEKPBmlyK2mhqxE3kN1BrZkYSQXARragN1mdB" \
-                      "7S62k1ELjuc7HcXKuzrkRG+aq1iT5Py+04sporrvvCPg8gRtSRxBY9qBgJcjqEviCBrTjn8Zfz6qPw4XX/o4HUH8jr5kANX2" \
-                      "pkGbPBkHgK6fBmCantjx+5EL5oVDnqsHL/DYhRMxwWIAAAAASUVORK5CYII="
-
         # Preparation for the Configuration display
-        # 20200104: This used to be part of config.html - yet moved here due to (relative) import issues
         from ..configcollector import ConfigCollector
-        cfgcoll = ConfigCollector(tor)
-        configs_used = cfgcoll.collect_configs_used()
+        configs_used = ConfigCollector(tor).collect_configs_used()
 
-        # params initialized before for onionoo data
-        params.update({
-            'session': session
-            # , 'read_bytes': node.bwdata['download']
-            # , 'written_bytes': node.bwdata['upload']
-            , 'tor': tor
-            , 'host': self.system
-            , 'session_id': session.id
-            , 'preserved_events': p_ev
-            , 'server_time': self.time()
-            , 'accounting_on': accounting_switch
-            , 'accounting_stats': accounting_stats
-            , 'icon': self.icon
-            , 'marker': icon_marker
-            , 'box_stamp': self.config.stamped_version
-            , 'box_debug': False    # ToDo: Adjust to config.debug!!
-            , 'boxVersion': self.version
-            , 'virtual_basepath': self.config.box.base_path
-            , 'sections': sections
-            , 'manpage': self.manpage
-            # , 'oo_show': onionoo_show
-            # , 'oo_details': node.onionoo.details()
-            # , 'oo_bw': node.onionoo.bandwidth()
-            # , 'oo_weights': node.onionoo.weights()
-            , 'section_config': section_config
-            # , 'oo_factory': node.onionoo
-            , 'geoip': self.geoip2
-            , 'family_fp': fingerprint
-            # , 'controlled_nodes': box_cc
-            , 'transport_status': transport
-            , 'token': session['token']
-            , 'cwd': str(self.cwd)
-            , 'configs_used': configs_used
-            , 'template_lookup': [str(self.cwd)]
-        })
+        from ..livedata import intervals
+        from .. import api
 
-        # Test
-        #    from bottle import SimpleTemplate
-        #    tpl = SimpleTemplate(name='scripts/box.js')
-        #    tpl.prepare(syntax='/* */ // {{ }}')
-        #    bjs = tpl.render(**params)
+        session['overview'] = api.build_overview(
+            tor=tor,
+            box_version=self.version,
+            box_stamp=self.config.stamped_version,
+            host=self.system,
+            configs_used=configs_used,
+            accounting_stats=accounting_stats,
+            accounting_switch=accounting_switch,
+            oo_details=params.get('oo_details'),
+            geoip=self.geoip2,
+            sections=sections,
+            show_logout=show_logout,
+            token=session['token'],
+            intervals=intervals,
+            transport=transport,
+        )
 
         # re-ping the session - to prevent accidential timeout
         self.sessions.get_session(session.id, request)
 
-        # prepare the includes
-        session['box.js'] = template('scripts/box.js', **params)
-        session['box.css'] = template('css/box.css', **params)
-        # session['fonts.css'] = template('css/latolatinfonts.css', **params)
+        return self.serve_web_file(session, 'index.html')
 
-        # create the dashboard
-        index = template('pages/index.html', **params)
+    def serve_web_file(self, session, filename):
+        """Deliver a file of the built frontend (theonionbox/web)."""
+        web_root = Path(self.cwd) / 'web'
+        if not (web_root / 'index.html').exists():
+            raise HTTPError(503, 'The dashboard frontend is not built. Run `npm ci && npm run build` in frontend/.')
+        return static_file(filename, root=str(web_root))
 
-        # re-ping the session - to prevent accidential timeout
-        self.sessions.get_session(session.id, request)
+    def get_asset(self, session, filename):
+        return self.serve_web_file(session, 'assets/' + filename)
 
-        # deliver the dashboard
-        return index
+    def get_overview(self, session):
+        overview = session['overview']
+        if overview is None:
+            raise HTTPError(404)
+        # hand out the *current* token; it rotates with each call of data.html
+        overview['token'] = session['token']
+        response.content_type = 'application/json'
+        response.set_header('Cache-Control', 'no-store')
+        return json.dumps(overview)
 
     def post_data(self, session):
 
@@ -896,7 +862,7 @@ class Dashboard(BaseApp):
                         # iterate through the nodes
                         for fp in fam_det:
                             # onionoo protocol v5.0 adaptation
-                            node_fp = fp[1:] if fp[0] is '$' else fp
+                            node_fp = fp[1:] if fp[0] == '$' else fp
                             node_key = 'family:{}'.format(node_fp)
                             node_bw = onionoo.bandwidth(node_fp)
 

@@ -314,7 +314,8 @@ package_data = {
         'pages/*',
         'scripts/*',
         'sections/*',
-        'tor/*'
+        'tor/*',
+        'web/*'
     ],
     'theonionbox.tob.system.windows': [
         'uptime/*'
@@ -409,23 +410,23 @@ setup(
             'theonionbox = theonionbox.__main__:main']
     },
     install_requires=[
-        'psutil>=5.5.0',
+        'psutil>=5.9',
         # 'apscheduler>=2.1.2, <3.*; python_version<"3.0"',
-        'apscheduler>=3.4; python_version>="3.0"',
-        'requests>=2.21',
-        'PySocks>=1.6.7',
-        'bottle>=0.12.16',
+        'apscheduler>=3.10',
+        'requests>=2.31',
+        'PySocks>=1.7.1',
+        'bottle>=0.12.25',
         'stem4tob>=1.7.1.post3',
-        'tzlocal>=1.5',
-        # 'futures>=3.2; python_version<"3.0"',
-        'urllib3>=1.22',
-        'configupdater>=1.0',
-        'cheroot>=6.5.5',
-        'click>=7.0',
+        'pytz>=2023.3',         # used by the scheduler & the Tor controller (no longer pulled in by tzlocal)
+        'tzlocal>=4.0',
+        'urllib3>=1.26',
+        'configupdater>=3.1',
+        'cheroot>=10.0',
+        'click>=8.0',           # 'result_callback' (formerly 'resultcallback')
         'pystray; platform_system == "Darwin"'
     ],
     long_description_content_type='text/x-rst; charset=UTF-8',
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     classifiers=[
         # https://pypi.python.org/pypi?%3Aaction=list_classifiers
         'Development Status :: 5 - Production/Stable',
@@ -443,8 +444,11 @@ setup(
         'Operating System :: POSIX :: BSD :: FreeBSD',
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3 :: Only',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
         'Topic :: System :: Networking :: Monitoring',
         'Topic :: Utilities',
     ],

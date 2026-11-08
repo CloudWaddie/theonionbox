@@ -58,7 +58,7 @@ class Scheduler(object):
             except (NonExistentTimeError, AmbiguousTimeError) as err:
                 # Could happen at the beginning of DST period or at the end:
                 # Add one hour to jump ot of the slushy zone
-                if trigger is 'date':
+                if trigger == 'date':
                     trigger_args['run_date'] += timedelta(hours=1)
                     s = self.schedulr.add_job(func, trigger, id=id,
                                               replace_existing=True, args=args, kwargs=kwargs, **trigger_args)
@@ -68,7 +68,7 @@ class Scheduler(object):
             return s
 
         else:
-            if trigger is 'date':
+            if trigger == 'date':
                 run_date = trigger_args['run_date']   # by intention: to raise if not set!
                 del trigger_args['run_date']
 
@@ -84,7 +84,7 @@ class Scheduler(object):
 
                 return s
 
-            elif trigger is 'interval':
+            elif trigger == 'interval':
                 # only partially implemented!!
                 seconds = 0
                 minutes = 0
@@ -104,7 +104,7 @@ class Scheduler(object):
                 return self.schedulr.add_interval_job(func, name=id, # replace_existing=True,
                                                       hours=hours, minutes=minutes, seconds=seconds,
                                                       args=args, kwargs=kwargs)
-            elif trigger is 'cron':
+            elif trigger == 'cron':
                 # only partially implemented!!
                 second = 0
                 minute = 0

@@ -1,107 +1,55 @@
 <!DOCTYPE html>
 
 <%
-    try:
-       from tob.template_tools import *
-    except ModuleNotFoundError:
-        from theonionbox.tob.template_tools import *
-    end
-
     base_path = get('virtual_basepath', '') + '/'
     session = get('session')
-#    page_stylesheets = get('stylesheets')
-#    page_scripts = get('scripts')
 %>
 
 <html lang="en">
 <head>
-
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=980, user-scalable=yes">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <link rel="icon" href="data:image/gif;base64,{{icon}}">
     <title>The Onion Box</title>
 
-    % # for stylesheet in page_stylesheets:
     % for stylesheet in session['stylesheets']:
         <link href="{{base_path}}{{session_id}}/{{!stylesheet}}" rel="stylesheet">
     % end
-
 </head>
 
-<body data-spy="scroll" data-target="#TOBNavBar" data-offset="0" style="min-width: 980px;">
-
-    %# NavBar will not be displayed yet helps to navigate via arrow keys
-    <nav id="TOBNavBar" style="display: none" class="navbar">
-    %# <nav id="TOBNavBar" class="navbar fixed-top">
-        <ul id="box_navbar_buttons" class="nav nav-tabs">
-            %# Section specific buttons will be inserted here later
-        </ul>
-    </nav>
-
-    <div class="container-fluid">
+<body>
+    <main class="auth">
+        <div class="auth-brand">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+                <circle cx="16" cy="16" r="14" fill="currentColor"/>
+                <circle cx="16" cy="16" r="9" fill="none" stroke="var(--bg)" stroke-width="2"/>
+                <circle cx="16" cy="16" r="4" fill="none" stroke="var(--bg)" stroke-width="2"/>
+            </svg>
+            The Onion Box
+        </div>
 
     <%
-        import os.path
         import logging
         bL = logging.getLogger('theonionbox')
-        div_open = False
 
         for section in sections:
-
-            if section == '-':
-                %>
-                <hr>
-                <%
+            if section[0] in ('!', '-'):
                 continue
             end
-
-            if section[0] == '!':
-                out = ''
-                if div_open:
-                    out += '<' + '/div>'    # written in this way to not confuse the PyCharm IDE
-                    div_open = False
-                end
-                if len(section) > 1:
-                    out += '<' + 'div id ="{}">'.format(section[1:])
-                    div_open = True
-                end
-                %>
-                {{!out}}
-                <%
-                continue
-            end
-
             file = 'sections/{0}/{0}.html'.format(section)
-
             try:
                 include(file)
             except Exception as exc:
-                import logging
-                bL = logging.getLogger('theonionbox')
-                bL.debug("While including '{}' into 'index_page.html': {}".format(file, exc))
+                bL.debug("While including '{}' into 'index.html': {}".format(file, exc))
             end
         end
-        out = ('<' + '/div>') if div_open else ''
     %>
-
-        {{!out}}
-
-    </div>
-
-    %# NEVER NEVER shall this part of the code be executed!
+    </main>
 
     <noscript>
-        <style type="text/css">
-            #content {display:none;}
-        </style>
-
-        <div class="container-fluid" style="min-width: 770px;">
-            {{!header_row('TheAuthor', 'Error')}}
-            {{!standard_row('','Sorry; this site relies on JAVASCRIPT. Please ENABLE it to proceed.')}}
-        </div>
+        <p style="text-align: center; color: var(--danger)">This page relies on JavaScript. Please enable it to proceed.</p>
     </noscript>
-
 </body>
 
 %   for script in session['scripts']:
@@ -109,5 +57,3 @@
 %   end
 
 </html>
-
-
