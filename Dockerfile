@@ -25,9 +25,22 @@ COPY --from=web /src/theonionbox/web /app/theonionbox/web
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
  && pip install --no-cache-dir . \
- && mkdir -p /etc/theonionbox \
- && cp /app/Docker/theonionbox.cfg /etc/theonionbox/theonionbox.cfg
+ && mkdir -p /etc/theonionbox /data \
+ && cp /app/Docker/theonionbox.cfg /etc/theonionbox/theonionbox.cfg \
+ && cp /app/Docker/entrypoint.sh /usr/local/bin/tob-entrypoint \
+ && chmod +x /usr/local/bin/tob-entrypoint \
+ && useradd --system --uid 10001 --home-dir /data --shell /usr/sbin/nologin tob \
+ && chown -R tob /data \
+ && rm -rf /app
 
-# The working directory must not hide the installed package (and its bundled 'web' build).
-WORKDIR /
-ENTRYPOINT ["theonionbox", "-c", "/etc/theonionbox/theonionbox.cfg"]
+# Everything that has to survive a restart / redeploy lives here: cc.cfg (your nodes & their credentials).
+VOLUME /data
+
+# Never run as root; the working directory must not hide the installed package (and its bundled 'web' build).
+USER tob
+WORKDIR /data
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/__health', timeout=4)" || exit 1
+
+ENTRYPOINT ["tob-entrypoint"]

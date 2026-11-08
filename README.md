@@ -1376,21 +1376,24 @@ base_path = /theonionbox
 Now everything should work as expected.
 
 ## *The Onion Box* Docker support
-The repository root holds a multi-stage [Dockerfile](Dockerfile): the first stage builds the dashboard (Node is **not** part of the final image), the second installs *The Onion Box* from this checkout into a slim Python image. The dedicated configuration file for the container is [`Docker/theonionbox.cfg`](Docker/theonionbox.cfg). Please be aware, that this Docker image for *The Onion Box* only supports [password authentication](#password-authentication).
+The repository root holds a multi-stage [Dockerfile](Dockerfile) (the first stage builds the web interface - Node is **not** part of the final image; the second installs *The Onion Box* into a slim Python image and runs it as an unprivileged user) and a [docker-compose.yml](docker-compose.yml).
 
-To build the image, run in the repository root
+The container starts the **ControlCenter** by default: add your relays, bridges and clients in the web interface; they are stored in the volume mounted at `/data`.
 
 ```bash
 docker build -t theonionbox .
+docker run -d -p 8080:8080 -v tobdata:/data -e TOB_ACCESS_PASSWORD='a long random password' theonionbox
 ```
 
-To then launch *The Onion Box* within the created Docker image, run
+| Environment variable | |
+|---|---|
+| `TOB_ACCESS_PASSWORD` | Protects the whole Box with a password. Strongly recommended whenever others can reach it. |
+| `TOB_CONTROLCENTER` | `0` = run the single node dashboard instead of the ControlCenter. |
+| `TOB_DATA_DIR` | Directory of the volume (default `/data`). |
 
-```bash
-docker run --network host -p 8080:8080 theonionbox
-```
+Additional command line options are appended to the `docker run` command; to use your own configuration, mount it over `/etc/theonionbox/theonionbox.cfg`. A health check is built in (`/__health`).
 
-Additional command line options are appended to the `docker run` command; to use your own configuration, mount it over `/etc/theonionbox/theonionbox.cfg`.
+**Coolify:** see [docs/coolify.md](docs/coolify.md) for the deployment and for how to prepare and connect relays & bridges (password and cookie authentication).
 
 ## Development of the web interface
 The dashboard is a single page app ([Vite](https://vite.dev) + React + TypeScript + [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) components, charts by [Recharts](https://recharts.org)) located in [`frontend/`](frontend). It supports a light and a dark theme (following the system, switchable in the header).

@@ -62,3 +62,44 @@ export function makeMock(): () => LiveResponse {
     return d
   }
 }
+
+
+/* ---- demo mode for everything that is not the live dashboard: ?mock=1&page=login|error|cc ---- */
+
+const demoNodes = () => {
+  const bw = (base: number) => Array.from({ length: 60 }, (_, i) => ({ s: Date.now() - (60 - i) * 1000, w: wave(i, base, base * 0.6, 7), r: -wave(i + 3, base * 1.4, base * 0.7, 9) }))
+  return [
+    { id: 'aaa', is_default: false, label: 'frankfurt-relay', control: 'port', host: '10.8.0.11', port: '9051', has_password: true, has_cookie: false, has_control_cookie: false, editable: true, state: 'ok', nickname: 'frankfurt', version: '0.4.9.11', version_status: 'recommended', mode: 'Relay', flags: ['Fast', 'Guard', 'Running', 'Stable', 'Valid'], hibernating: null, fingerprint: 'A'.repeat(40), circuits: 312, connections: 87, streams: 540, bw: bw(900_000) },
+    { id: 'bbb', is_default: false, label: 'obfs4-bridge', control: 'port', host: '10.8.0.12', port: '9051', has_password: true, has_cookie: false, has_control_cookie: false, editable: true, state: 'ok', nickname: 'bridge1', version: '0.4.9.11', version_status: 'recommended', mode: 'Bridge', flags: ['Running', 'Valid'], hibernating: null, fingerprint: 'B'.repeat(40), circuits: 40, connections: 22, streams: 61, bw: bw(250_000) },
+    { id: 'ccc', is_default: false, label: 'old-relay', control: 'proxy', host: 'abcdefghijklmnop.onion', port: '9051', has_password: false, has_cookie: false, has_control_cookie: true, editable: true, state: 'auth', error: 'Authentication failed.' },
+    { id: 'ddd', is_default: false, label: 'amsterdam-relay', control: 'port', host: '10.8.0.14', port: '9051', has_password: true, has_cookie: false, has_control_cookie: false, editable: true, state: 'offline', error: 'Connection refused' },
+  ]
+}
+
+export function installMockApi() {
+  const page = new URLSearchParams(location.search).get('page') ?? 'dashboard'
+  let nodes: any[] = demoNodes()
+  const real = window.fetch.bind(window)
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input)
+    const method = (init?.method ?? 'GET').toUpperCase()
+    const body = init?.body ? JSON.parse(String(init.body)) : {}
+    if (url.startsWith('api/state')) {
+      const common = { box: '20.2 (demo)', cc: page === 'cc' }
+      if (page === 'login') return json({ page: 'login', auth: 'digest', proceed_to: 'index.html', label: 'frankfurt-relay', ...common })
+      if (page === 'error') return json({ page: 'error', message: 'Connection refused: 127.0.0.1:9051', ...common })
+      if (page === 'cc') return json({ page: 'cc', logout: true, ...common })
+      return json({ page: 'dashboard', ...common })
+    }
+    if (url.startsWith('api/cc/nodes') && method === 'GET') return json({ tick: Date.now(), readonly: false, nodes: nodes.map((n) => (n.state === 'ok' ? { ...n, bw: n.bw.slice(-2).map((p: any) => ({ ...p, s: Date.now() })) } : n)) })
+    if (url === 'api/cc/nodes' && method === 'POST') { nodes.push({ ...demoNodes()[0], id: String(Math.random()), label: body.label, host: body.host, port: body.port }); return json({ id: 'x' }) }
+    if (url.startsWith('api/cc/nodes/') && url.endsWith('/open')) return json({ path: '#opened' })
+    if (url.startsWith('api/cc/nodes/') && method === 'DELETE') { nodes = nodes.filter((n) => !url.endsWith(n.id)); return json({ id: 'x' }) }
+    if (url.startsWith('api/cc/nodes/') && method === 'PUT') return json({ id: 'x' })
+    if (url === 'api/cc/order') { const o: string[] = body.order; nodes.sort((a, b) => o.indexOf(a.id) - o.indexOf(b.id)); return json({ ok: true }) }
+    if (url === 'api/cc/test') return json({ ok: !String(body.host).includes('bad'), message: String(body.host).includes('bad') ? 'Connection refused' : 'Tor ControlPort found.', methods: ['HASHEDPASSWORD'] })
+    return real(input, init)
+  }
+}
