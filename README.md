@@ -883,9 +883,9 @@ sudo -u debian-tor python theonionbox.py
 
 For a node on **another machine** (monitored by the [ControlCenter](#the-controlcenter)) you can paste the content of the cookie into the _Control cookie_ field of the node dialog. Print it on the node with
 ```
-od -An -v -tx1 /var/lib/tor/control_auth_cookie | tr -d ' \n'
+od -An -v -tx1 /run/tor/control.authcookie | tr -d ' \n'
 ```
-(the path depends on the `DataDirectory` of the node). The box then authenticates by means of `SAFECOOKIE`: the cookie itself is never sent over the network. Tor creates a new cookie each time it starts - you have to update it after a restart of the node.
+(that is the file of the Debian / Ubuntu package; for a plain Tor it is the `control_auth_cookie` in its `DataDirectory`). The box then authenticates by means of `SAFECOOKIE`: the cookie itself is never sent over the network. Tor creates a new cookie each time it starts - you have to update it after a restart of the node.
 
 ### Password Authentication
 By definition of the `HashedControlPassword` parameter in the `torrc` configuration file of your Tor node, you can advise Tor to operate with _Password Authentication_.

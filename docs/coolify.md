@@ -63,15 +63,16 @@ shows *Connecting → Online*, or tells you what is wrong. **Details** opens the
 
 ### Cookie authentication
 
-With `CookieAuthentication 1` Tor writes a random cookie file (`<DataDirectory>/control_auth_cookie`, on Debian
-`/var/lib/tor/control_auth_cookie`) and accepts whoever can present it. Two situations:
+With `CookieAuthentication 1` Tor writes a random cookie file and accepts whoever can present it. Where the file is
+depends on how Tor was installed: `/run/tor/control.authcookie` with the Debian / Ubuntu packages (it lives in `/run`,
+so it is new after every start), `<DataDirectory>/control_auth_cookie` for a plain Tor. Two situations:
 
 * **The Box can read that file** (same machine, or a volume shared with the Tor container - add
   `CookieAuthFileGroupReadable 1` if the users differ): add the node without a password; nothing else to do.
 * **The node is on another machine** (the normal case): paste the cookie into **Control cookie**. On the node:
 
   ```bash
-  od -An -v -tx1 /var/lib/tor/control_auth_cookie | tr -d ' \n'
+  od -An -v -tx1 /run/tor/control.authcookie | tr -d ' \n'     # Debian / Ubuntu package
   ```
 
   (64 hex characters). The Box authenticates with `SAFECOOKIE`, so the cookie itself never crosses the network.
