@@ -1396,7 +1396,7 @@ Additional command line options are appended to the `docker run` command; to use
 **Coolify:** see [docs/coolify.md](docs/coolify.md) for the deployment and for how to prepare and connect relays & bridges (password and cookie authentication).
 
 ## Development of the web interface
-The dashboard is a single page app ([Vite](https://vite.dev) + React + TypeScript + [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) components, charts by [Recharts](https://recharts.org)) located in [`frontend/`](frontend). It supports a light and a dark theme (following the system, switchable in the header).
+The dashboard is a single page app ([Vite](https://vite.dev) + React + TypeScript + [Tailwind CSS](https://tailwindcss.com) + [shadcn/ui](https://ui.shadcn.com) components; the charts are plain SVG, no charting library) located in [`frontend/`](frontend). It supports a light and a dark theme (following the system, switchable in the header).
 
 *The Onion Box* serves the **built** result from `theonionbox/web`, which is committed to the repository & shipped within the Python package. Therefore neither `pip install` nor Docker users need Node.js. You only need it if you change the frontend:
 

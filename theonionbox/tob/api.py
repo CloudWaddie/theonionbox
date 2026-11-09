@@ -69,6 +69,7 @@ def tor_section(tor, box_version, accounting_stats=None) -> Dict[str, Any]:
         'is_latest_stable': (str(short) == latest_stable) if latest_stable else None,
         'is_latest_unstable': (str(short) == latest_unstable) if latest_unstable else None,
         'pid': _safe(lambda: tor.get_pid()),
+        'uptime': _safe(lambda: int(tor.get_info('uptime'))),   # seconds, at the time this overview was built
         'user': _safe(lambda: tor.user),
         'nickname': _safe(lambda: tor.nickname),
         'mode': mode,
@@ -168,6 +169,20 @@ def network_section(oo_details, geoip) -> Optional[Dict[str, Any]]:
         'as_number': d('as_number'),
         'as_name': d('as_name'),
         'host_name': d('host_name'),
+        # bytes/s, as tor reported them to the directory authorities
+        'advertised_bandwidth': d('advertised_bandwidth'),
+        'observed_bandwidth': d('observed_bandwidth'),
+        'bandwidth_rate': d('bandwidth_rate'),
+        'bandwidth_burst': d('bandwidth_burst'),
+        'consensus_weight': d('consensus_weight') or None,
+        'measured': d('measured'),
+        'exit_policy_summary': d('exit_policy_summary'),
+        'family_size': _safe(lambda: len(oo_details('effective_family') or []), 0),
+        'version_status': d('version_status'),
+        'recommended_version': d('recommended_version'),
+        'overload_since': d('overload_general_timestamp'),
+        'unreachable_or_addresses': d('unreachable_or_addresses') or [],
+        'transports': d('transports') or [],
         'location': location,
         'published': _jsonable(_safe(lambda: oo_details.published())),
     }

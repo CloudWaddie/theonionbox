@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, LogOut, Pencil, Plus, Server, ShieldAlert, Trash2, WifiOff } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CircleAlert, Loader2, LogOut, Pencil, Plus, Search, Server, ShieldAlert, Trash2, Waypoints, WifiOff, X } from 'lucide-react'
 import { ApiError, ccApi, type CCNode, type BwSample, type NodeForm } from '@/lib/cc'
 import { formatBytes, formatRate } from '@/lib/format'
 import { Footer, TopBar } from '@/components/shell'
-import { Blur, RoleBadges } from '@/components/common'
+import { Sparkline } from '@/components/charts'
+import { Blur, RoleBadges, Skeleton, Stat } from '@/components/common'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -13,7 +13,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 const POLL_MS = 2500
+const HIDDEN_MS = 10_000   // nobody is looking: just keep the session alive
 const KEEP = 90
+const text = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 // polls the node list, keeps the last samples per node for the sparklines
 function useNodes() {
@@ -22,30 +24,44 @@ function useNodes() {
   const [readonly, setReadonly] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [expired, setExpired] = useState(false)
   const since = useRef<number | undefined>(undefined)
+  const shift = useRef<number | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const alive = useRef(true)
+  const failures = useRef(0)
+  const round = useRef(0)
 
   const refresh = useCallback(async (reset = false) => {
     if (reset) since.current = undefined
+    const mine = ++round.current
     try {
       const data = await ccApi.list(since.current)
-      if (!alive.current) return
-      const shift = Date.now() - data.tick
+      // an answer that was overtaken by a newer request (e.g. after a change) is stale
+      if (!alive.current || mine !== round.current) return
+      if (shift.current === null) shift.current = Date.now() - data.tick
+      const dt = shift.current
       since.current = data.tick
       setNodes(data.nodes)
       setReadonly(data.readonly)
       setHistory((h) => {
         const next: Record<string, BwSample[]> = {}
         for (const n of data.nodes) {
-          const fresh = (n.bw ?? []).map((p) => ({ ...p, s: p.s + shift }))
-          next[n.id] = [...(reset ? [] : h[n.id] ?? []), ...fresh].slice(-KEEP)
+          const have = reset ? [] : h[n.id] ?? []
+          const last = have.length ? have[have.length - 1].s : -Infinity
+          const fresh = (n.bw ?? []).map((p) => ({ ...p, s: p.s + dt })).filter((p) => p.s > last)
+          next[n.id] = fresh.length || reset ? [...have, ...fresh].slice(-KEEP) : have
         }
         return next
       })
+      failures.current = 0
       setError(null)
     } catch (e) {
-      if (alive.current) setError(e instanceof Error ? e.message : String(e))
+      if (!alive.current || mine !== round.current) return
+      if (e instanceof ApiError && e.status === 404) return setExpired(true)
+      failures.current += 1
+      // a single lost answer is not worth a red banner
+      if (failures.current > 1) setError(text(e))
     } finally {
       if (alive.current) setLoaded(true)
     }
@@ -53,35 +69,44 @@ function useNodes() {
 
   useEffect(() => {
     alive.current = true
+    let stopped = false
+    let running = false
     const tick = async () => {
-      await refresh()
-      if (alive.current) timer.current = setTimeout(tick, POLL_MS)
+      if (running) return   // never two chains of polls
+      running = true
+      try { await refresh() } finally { running = false }
+      if (stopped) return
+      const wait = document.hidden ? HIDDEN_MS : Math.min(15_000, POLL_MS * 2 ** Math.min(failures.current, 3))
+      clearTimeout(timer.current)
+      timer.current = setTimeout(tick, wait)
     }
+    const wake = () => { if (!document.hidden && !stopped) { clearTimeout(timer.current); tick() } }
+    document.addEventListener('visibilitychange', wake)
+    window.addEventListener('online', wake)
     tick()
-    return () => { alive.current = false; clearTimeout(timer.current) }
+    return () => {
+      stopped = true; alive.current = false
+      clearTimeout(timer.current)
+      document.removeEventListener('visibilitychange', wake)
+      window.removeEventListener('online', wake)
+    }
   }, [refresh])
 
-  return { nodes, history, readonly, loaded, error, refresh }
+  return { nodes, setNodes, history, readonly, loaded, error, expired, refresh }
 }
 
 const STATE_BADGE = {
   ok: ['success', 'Online'], connecting: ['warning', 'Connecting'], auth: ['destructive', 'Login needed'], offline: ['destructive', 'Offline'],
 } as const
 
-function Sparkline({ samples }: { samples: BwSample[] }) {
-  const data = samples.map((p) => ({ t: p.s, up: Math.abs(p.w), down: Math.abs(p.r) }))
-  if (data.length < 2) return <div className="h-14 rounded-md bg-muted/50" />
-  return (
-    <div className="h-14">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-          <YAxis hide domain={[0, (m: number) => Math.max(m, 5000)]} />
-          <Area dataKey="down" type="monotone" stroke="hsl(var(--chart-2))" strokeWidth={1.5} fill="hsl(var(--chart-2))" fillOpacity={0.12} dot={false} isAnimationActive={false} />
-          <Area dataKey="up" type="monotone" stroke="hsl(var(--chart-1))" strokeWidth={1.5} fill="hsl(var(--chart-1))" fillOpacity={0.12} dot={false} isAnimationActive={false} />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  )
+const UP_COLOR = 'hsl(var(--chart-1))', DOWN_COLOR = 'hsl(var(--chart-2))'
+
+function Traffic({ samples }: { samples: BwSample[] }) {
+  const lines = useMemo(() => [
+    { values: samples.map((p) => Math.abs(p.r)), color: DOWN_COLOR },
+    { values: samples.map((p) => Math.abs(p.w)), color: UP_COLOR },
+  ], [samples])
+  return <Sparkline lines={lines} minTop={5000} />
 }
 
 const COUNTRY_NAMES = typeof Intl !== 'undefined' && 'DisplayNames' in Intl ? new Intl.DisplayNames(undefined, { type: 'region' }) : null
@@ -95,11 +120,12 @@ function ago(ms: number) {
 // stats of a Snowflake proxy, from its -metrics endpoint
 function SnowflakeBody({ node }: { node: CCNode }) {
   const sf = node.snowflake!
-  const last = sf.history[sf.history.length - 1]
+  const history = sf.history ?? []
+  const last = history[history.length - 1]
   const attempts = sf.connections_1h + sf.timeouts_1h
   return (
     <>
-      <Sparkline samples={sf.history} />
+      <Traffic samples={history} />
       <div className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm tabular-nums">
         <span className="flex items-center gap-1.5" title="Sent to clients"><ArrowUp className="size-3.5 text-chart-1" />{formatRate(last ? last.w : null)}</span>
         <span className="flex items-center gap-1.5" title="Received from clients"><ArrowDown className="size-3.5 text-chart-2" />{formatRate(last ? last.r : null)}</span>
@@ -114,7 +140,7 @@ function SnowflakeBody({ node }: { node: CCNode }) {
       </dl>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {node.health && node.health.status !== 'ok' && <Badge variant="warning" title={node.health.issues.join(', ')}>Check: {node.health.issues.slice(0, 2).join(', ')}</Badge>}
-        {sf.countries.slice(0, 5).map((c) => <Badge key={c.cc} variant="secondary" title={`${countryName(c.cc)}: ${c.n} clients since the proxy started`}>{c.cc === '??' ? 'Unknown' : c.cc} {c.n}</Badge>)}
+        {(sf.countries ?? []).slice(0, 5).map((c) => <Badge key={c.cc} variant="secondary" title={`${countryName(c.cc)}: ${c.n} clients since the proxy started`}>{c.cc === '??' ? 'Unknown' : c.cc} {c.n}</Badge>)}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">Counters updated {ago(sf.updated)}</p>
     </>
@@ -125,7 +151,7 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
   node: CCNode; samples: BwSample[]; canMoveLeft: boolean; canMoveRight: boolean
   onMove: (dir: -1 | 1) => void; onEdit: () => void; onOpen: () => void; opening: boolean
 }) {
-  const [variant, text] = STATE_BADGE[node.state]
+  const [variant, text] = STATE_BADGE[node.state] ?? STATE_BADGE.offline
   const last = samples[samples.length - 1]
   const title = node.label || node.nickname || node.host || (node.control === 'snowflake' ? 'Snowflake proxy' : 'Tor node')
   const address = node.control === 'socket' ? node.host : node.host ? `${node.host}${node.port ? `:${node.port}` : ''}` : 'this machine'
@@ -151,7 +177,7 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
           <SnowflakeBody node={node} />
         ) : node.state === 'ok' ? (
           <>
-            <Sparkline samples={samples} />
+            <Traffic samples={samples} />
             <div className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm tabular-nums">
               <span className="flex items-center gap-1.5"><ArrowUp className="size-3.5 text-chart-1" />{formatRate(last ? Math.abs(last.w) : null)}</span>
               <span className="flex items-center gap-1.5"><ArrowDown className="size-3.5 text-chart-2" />{formatRate(last ? Math.abs(last.r) : null)}</span>
@@ -163,7 +189,8 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
               {node.health && node.health.status !== 'ok' && <Badge variant={node.health.status === 'fail' ? 'destructive' : 'warning'} title={node.health.issues.join(', ')}>{node.health.status === 'fail' ? 'Problem' : 'Check'}: {node.health.issues.slice(0, 2).join(', ')}</Badge>}
               {(node.flags ?? []).slice(0, 5).map((f) => <Badge key={f} variant="secondary">{f}</Badge>)}
             </div>
-            <p className="mt-3 text-xs text-muted-foreground">{node.circuits ?? 0} circuits · {node.connections ?? 0} OR connections</p>
+            <p className="mt-3 text-xs text-muted-foreground">{(node.circuits ?? 0).toLocaleString()} circuits · {(node.connections ?? 0).toLocaleString()} OR connections · {(node.streams ?? 0).toLocaleString()} streams</p>
+            {node.fingerprint && node.mode !== 'Bridge' && <p className="mt-1 truncate font-mono text-[0.7rem] text-muted-foreground" title={node.fingerprint}>{node.fingerprint}</p>}
           </>
         ) : node.state === 'connecting' ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">Connecting…</div>
@@ -191,20 +218,54 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
   )
 }
 
+const rateOf = (n: CCNode, samples: BwSample[]): [number, number] => {
+  const list = n.snowflake ? n.snowflake.history ?? [] : samples
+  const last = list[list.length - 1]
+  return n.state === 'ok' && last ? [Math.abs(last.w), Math.abs(last.r)] : [0, 0]
+}
+
 export function ControlCenterView({ version, logout }: { version: string; logout: boolean }) {
-  const { nodes, history, readonly, loaded, error, refresh } = useNodes()
+  const { nodes, setNodes, history, readonly, loaded, error, expired, refresh } = useNodes()
   const [editing, setEditing] = useState<CCNode | 'new' | null>(null)
   const [opening, setOpening] = useState<string | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const [q, setQ] = useState('')
 
   const editable = useMemo(() => nodes.filter((n) => n.editable).map((n) => n.id), [nodes])
 
+  const totals = useMemo(() => {
+    let online = 0, up = 0, down = 0, circuits = 0, clients = 0
+    const trouble: string[] = []
+    for (const n of nodes) {
+      const name = n.label || n.nickname || n.host || 'node'
+      if (n.state === 'ok') online++
+      else if (n.state !== 'connecting') trouble.push(`${name}: ${n.state === 'auth' ? 'login needed' : 'offline'}`)
+      if (n.state === 'ok' && n.health && n.health.status !== 'ok') trouble.push(`${name}: ${n.health.issues.slice(0, 2).join(', ') || 'needs attention'}`)
+      const [w, r] = rateOf(n, history[n.id] ?? [])
+      up += w; down += r
+      circuits += n.state === 'ok' ? n.circuits ?? 0 : 0
+      clients += n.state === 'ok' ? n.snowflake?.connections_1h ?? 0 : 0
+    }
+    return { online, up, down, circuits, clients, trouble }
+  }, [nodes, history])
+
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    if (!needle) return nodes
+    return nodes.filter((n) => [n.label, n.nickname, n.host, n.mode, n.state, n.fingerprint, n.version, ...(n.flags ?? [])].some((v) => v && String(v).toLowerCase().includes(needle)))
+  }, [nodes, q])
+
+  useEffect(() => {
+    document.title = nodes.length ? `${totals.online}/${nodes.length} online · The Onion Box` : 'The Onion Box'
+  }, [totals.online, nodes.length])
+
   async function open(n: CCNode) {
     setOpening(n.id)
+    setFailure(null)
     try {
       location.assign((await ccApi.open(n.id)).path)
     } catch (e) {
-      setFailure(e instanceof Error ? e.message : String(e))
+      setFailure(text(e))
       setOpening(null)
     }
   }
@@ -215,52 +276,98 @@ export function ControlCenterView({ version, logout }: { version: string; logout
     const j = i + dir
     if (i < 0 || j < 0 || j >= order.length) return
     ;[order[i], order[j]] = [order[j], order[i]]
-    try { await ccApi.order(order) } catch (e) { setFailure(e instanceof Error ? e.message : String(e)) }
-    refresh(true)
+    // show the new order right away, the Box confirms it with the next answer
+    setNodes((list) => {
+      const a = list.findIndex((x) => x.id === order[i]), b = list.findIndex((x) => x.id === order[j])
+      if (a < 0 || b < 0) return list
+      const next = [...list]
+      ;[next[a], next[b]] = [next[b], next[a]]
+      return next
+    })
+    try { await ccApi.order(order); setFailure(null) } catch (e) { setFailure(text(e)) }
+    refresh()
   }
 
   return (
     <div className="min-h-screen">
-      <TopBar actions={logout && <Button variant="outline" size="sm" asChild><a href="cc/logout"><LogOut /> Logout</a></Button>}>
-        <span className="text-muted-foreground">/</span><span className="font-medium">All nodes</span>
+      <TopBar actions={logout && <Button variant="outline" size="sm" asChild><a href="cc/logout"><LogOut /><span className="hidden sm:inline">Logout</span></a></Button>}>
+        <span className="hidden text-muted-foreground sm:inline">/</span><span className="hidden font-medium sm:inline">All nodes</span>
       </TopBar>
 
       <main className="container py-8">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">Control Center</h1>
-            <p className="text-sm text-muted-foreground">{nodes.length} node{nodes.length === 1 ? '' : 's'} · relays, bridges, clients and Snowflake proxies in one place</p>
+            <p className="text-sm text-muted-foreground">Relays, bridges, clients and Snowflake proxies in one place.</p>
           </div>
-          {!readonly && <Button onClick={() => setEditing('new')}><Plus />Add node</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            {nodes.length > 3 && (
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                <input type="search" aria-label="Filter nodes" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter nodes…" className="h-9 w-44 rounded-md border bg-background pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring" />
+              </label>
+            )}
+            {!readonly && <Button onClick={() => setEditing('new')}><Plus />Add node</Button>}
+          </div>
         </div>
 
         {readonly && <p className="mb-6 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">The configuration file is read-only: nodes can be viewed but not changed.</p>}
-        {(error || failure) && <p role="alert" className="mb-6 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{failure ?? `Lost contact with the Box (${error}).`}</p>}
+        {failure ? (
+          <p role="alert" className="mb-6 flex items-start justify-between gap-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <span className="min-w-0 break-words">{failure}</span>
+            <button type="button" onClick={() => setFailure(null)} aria-label="Dismiss" className="shrink-0 rounded p-0.5 hover:bg-destructive/10"><X className="size-4" /></button>
+          </p>
+        ) : error && !expired ? (
+          <p role="alert" className="mb-6 rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">Lost contact with the Box ({error}) – trying again…</p>
+        ) : null}
 
         {!loaded ? (
-          <div className="py-24 text-center text-sm text-muted-foreground">Loading…</div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true" aria-label="Loading">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-64" />)}</div>
         ) : nodes.length === 0 ? (
-          <Card className="flex flex-col items-center gap-3 border-dashed py-16 text-center">
+          <Card className="flex flex-col items-center gap-3 border-dashed px-6 py-16 text-center">
             <Server className="size-8 text-muted-foreground" />
             <h2 className="font-semibold">No nodes yet</h2>
             <p className="max-w-sm text-sm text-muted-foreground">Add the ControlPort of a relay, bridge or client, or the metrics port of a Snowflake proxy, to start monitoring it.</p>
             {!readonly && <Button onClick={() => setEditing('new')}><Plus />Add your first node</Button>}
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {nodes.map((n) => {
-              const i = editable.indexOf(n.id)
-              return <NodeCard key={n.id} node={n} samples={history[n.id] ?? []} opening={opening === n.id}
-                canMoveLeft={i > 0} canMoveRight={i >= 0 && i < editable.length - 1}
-                onMove={(d) => move(n, d)} onEdit={() => setEditing(n)} onOpen={() => open(n)} />
-            })}
-          </div>
+          <>
+            <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+              <Stat label="Online" icon={<Server />} value={<>{totals.online}<span className="text-base font-normal text-muted-foreground"> / {nodes.length}</span></>}
+                hint={totals.trouble.length ? <span className="text-warning" title={totals.trouble.join('\n')}><CircleAlert className="mr-1 inline size-3.5 align-[-2px]" />{totals.trouble.length} need{totals.trouble.length === 1 ? 's' : ''} attention</span> : 'all healthy'} />
+              <Stat label="Upload" icon={<ArrowUp />} value={formatRate(totals.up)} hint="all nodes together" />
+              <Stat label="Download" icon={<ArrowDown />} value={formatRate(totals.down)} hint="all nodes together" />
+              <Stat label="Circuits" icon={<Waypoints />} value={totals.circuits.toLocaleString()} hint={totals.clients ? `${totals.clients.toLocaleString()} Snowflake clients last hour` : 'across all Tor nodes'} />
+            </div>
+            {shown.length === 0 ? (
+              <p className="rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">No node matches “{q.trim()}”.</p>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {shown.map((n) => {
+                  const i = editable.indexOf(n.id)
+                  return <NodeCard key={n.id} node={n} samples={history[n.id] ?? []} opening={opening === n.id}
+                    canMoveLeft={!q.trim() && i > 0} canMoveRight={!q.trim() && i >= 0 && i < editable.length - 1}
+                    onMove={(d) => move(n, d)} onEdit={() => setEditing(n)} onOpen={() => open(n)} />
+                })}
+              </div>
+            )}
+          </>
         )}
 
         <Footer version={version} />
       </main>
 
       {editing && <NodeDialog node={editing === 'new' ? null : editing} onClose={() => setEditing(null)} onDone={() => { setEditing(null); refresh(true) }} />}
+
+      {expired && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-6 backdrop-blur-sm">
+          <div className="max-w-sm space-y-4 rounded-lg border bg-card p-6 text-center shadow-lg">
+            <h2 className="text-lg font-semibold">Session expired</h2>
+            <p className="text-sm text-muted-foreground">The Box closed this session. Start a new one to continue.</p>
+            <Button asChild><a href="../">Start a new session</a></Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -328,7 +435,7 @@ function NodeDialog({ node, onClose, onDone }: { node: CCNode | null; onClose: (
 
   async function run<T>(fn: () => Promise<T>, then?: (r: T) => void) {
     setBusy(true); setError(null)
-    try { const r = await fn(); then?.(r) } catch (e) { setError(e instanceof ApiError || e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+    try { const r = await fn(); then?.(r) } catch (e) { setError(text(e)) } finally { setBusy(false) }
   }
 
   return (

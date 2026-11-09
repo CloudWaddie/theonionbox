@@ -19,6 +19,13 @@ from ..utils import AttributedDict
 from ..version import VersionManager
 # from tob.scheduler import Scheduler
 
+def token_matches(session, token) -> bool:
+    """True if 'token' is the session's current token - or the one of the request just before."""
+    if not token:
+        return False
+    return token in (session['token'], session['token_prev'])    # a missing key reads as None
+
+
 class Dashboard(BaseApp):
 
     def __init__(self
@@ -558,8 +565,10 @@ class Dashboard(BaseApp):
         tor = None
 
         # Session token verification
+        # The token rotates with every answer. If an answer gets lost on its way (flaky network, a suspended
+        # browser tab), the page comes back with the token it used before: accept that one as well.
         token = request.forms.get('token', None)
-        if token is None or token != session['token']:
+        if not token_matches(session, token):
             self.sessions.delete_session(session)
             self.log.warning("Token mismatch at session {}. Session closed.".format(session.id_short()))
             raise HTTPError(404)
@@ -577,6 +586,7 @@ class Dashboard(BaseApp):
             raise HTTPError(503)
 
         # create new session token
+        session['token_prev'] = token
         session['token'] = uuid.uuid4().hex
 
         its_now = int(self.time()) * 1000  # JS!

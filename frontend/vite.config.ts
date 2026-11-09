@@ -10,13 +10,6 @@ export default defineConfig({
   build: {
     outDir: '../theonionbox/web',
     emptyOutDir: true,
-    chunkSizeWarningLimit: 900,
-    rollupOptions: {
-      output: {
-        // charts are the heaviest dependency; keep them out of the entry chunk so the first paint is not blocked by them
-        manualChunks: (id: string) => (id.includes('node_modules/recharts') || id.includes('node_modules/d3-') || id.includes('node_modules/victory-vendor') ? 'charts' : undefined),
-      },
-    },
   },
   server: {
     // `npm run dev` against a running Box: open http://localhost:5173/?mock=1 for demo data

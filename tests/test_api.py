@@ -100,3 +100,53 @@ def test_build_overview_is_json_serialisable():
     assert overview['header']['title'] == 'testrelay'
     assert overview['host'] is None and overview['network'] is None
     assert overview['hidden_services'][0]['dir'] == '/var/lib/tor/hs'
+
+
+def test_network_section_carries_bandwidth_and_policy():
+    class Details:
+        data = {'nickname': 'testrelay', 'or_addresses': ['203.0.113.7:9001'], 'advertised_bandwidth': 1000,
+                'observed_bandwidth': 2000, 'consensus_weight': 30, 'effective_family': ['$A', '$B'],
+                'exit_policy_summary': {'reject': ['1-65535']}}
+
+        def __call__(self, key):
+            return self.data.get(key)
+
+        def is_relay(self):
+            return True
+
+        def is_bridge(self):
+            return False
+
+        def published(self):
+            return '2026-11-08 03:00:00'
+
+    net = api.network_section(Details(), None)
+    json.dumps(net)
+    assert net['advertised_bandwidth'] == 1000 and net['observed_bandwidth'] == 2000
+    assert net['consensus_weight'] == 30 and net['family_size'] == 2
+    assert net['exit_policy_summary'] == {'reject': ['1-65535']}
+    assert net['bandwidth_rate'] is None and net['unreachable_or_addresses'] == []
+
+
+def test_tor_section_reports_uptime_only_if_tor_knows_it():
+    assert api.tor_section(FakeTor(), Box)['uptime'] is None
+
+    class Up(FakeTor):
+        def get_info(self, key, default=None):
+            return '86400' if key == 'uptime' else super().get_info(key, default)
+
+    assert api.tor_section(Up(), Box)['uptime'] == 86400
+
+
+def test_live_data_token_accepts_the_previous_one():
+    # a lost answer must not kill the session: the page retries with the token it sent before
+    from theonionbox.tob.apps.dashboard import token_matches
+    from theonionbox.tob.session import Session
+
+    session = Session('id', {'token': 'new'})
+    assert token_matches(session, 'new')
+    assert not token_matches(session, 'old')
+    assert not token_matches(session, None) and not token_matches(session, '')
+    session['token_prev'] = 'old'
+    assert token_matches(session, 'old') and token_matches(session, 'new')
+    assert not token_matches(session, 'older')

@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import type { BridgeInfo, CheckStatus, HealthInfo } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
-import { Blur, Empty, KeyValues, Panel } from '@/components/common'
+import { Blur, CopyButton, Empty, KeyValues, Panel } from '@/components/common'
 
 const ICON = {
   ok: <CheckCircle2 className="size-4 text-success" />,
@@ -15,16 +15,21 @@ const SUMMARY: Record<CheckStatus, ['success' | 'warning' | 'destructive', strin
   fail: ['destructive', 'Problem'],
 }
 
+const ORDER: Record<CheckStatus, number> = { fail: 0, warn: 1, ok: 2 }
+
 export function HealthPanel({ health }: { health: HealthInfo }) {
-  const [variant, text] = SUMMARY[health.status]
+  const [variant, text] = SUMMARY[health.status] ?? SUMMARY.warn
+  // what needs attention goes first
+  const checks = [...health.checks].sort((a, b) => (ORDER[a.status] ?? 1) - (ORDER[b.status] ?? 1))
+  const passed = checks.filter((c) => c.status === 'ok').length
   return (
-    <Panel title="Health" description="Checks of this node, repeated every minute." action={<Badge variant={variant}>{text}</Badge>}>
+    <Panel title="Health" description={`${passed} of ${checks.length} checks passed · repeated every minute.`} action={<Badge variant={variant}>{text}</Badge>}>
       <ul className="divide-y text-sm">
-        {health.checks.map((c) => (
-          <li key={c.id} className="grid grid-cols-[1.25rem_9rem_1fr] items-start gap-3 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[1.25rem_12rem_1fr]">
-            <span className="mt-0.5">{ICON[c.status]}</span>
+        {checks.map((c) => (
+          <li key={c.id} className="grid grid-cols-[1.25rem_1fr] items-start gap-x-3 gap-y-0.5 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[1.25rem_12rem_1fr]">
+            <span className="mt-0.5">{ICON[c.status] ?? ICON.warn}</span>
             <span className="font-medium">{c.label}</span>
-            <span className="min-w-0 break-words text-muted-foreground">{c.detail}</span>
+            <span className="col-start-2 min-w-0 break-words text-muted-foreground sm:col-start-3">{c.detail}</span>
           </li>
         ))}
       </ul>
@@ -60,7 +65,7 @@ export function BridgePanel({ bridge }: { bridge: BridgeInfo }) {
           ['Distribution', bridge.distribution],
           ['Publishing', bridge.publish],
           ['Hashed fingerprint', bridge.hashed_fingerprint ? <span className="font-mono text-xs">{bridge.hashed_fingerprint}</span> : null],
-          ['Bridge line', bridge.bridge_line ? <Blur className="block"><code className="block select-all break-all rounded bg-muted p-2 text-xs">{bridge.bridge_line}</code></Blur> : null],
+          ['Bridge line', bridge.bridge_line ? <span className="flex items-start gap-1"><Blur className="block min-w-0 flex-1"><code className="block select-all break-all rounded bg-muted p-2 text-xs">{bridge.bridge_line}</code></Blur><CopyButton value={bridge.bridge_line} label="Copy bridge line" /></span> : null],
         ]} />
       </Panel>
 

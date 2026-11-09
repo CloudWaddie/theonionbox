@@ -7,6 +7,7 @@ export interface TorInfo {
   is_latest_stable: boolean | null
   is_latest_unstable: boolean | null
   pid: number | null
+  uptime?: number | null
   user: string | null
   nickname: string | null
   mode: 'Client' | 'Relay' | 'Bridge'
@@ -47,6 +48,19 @@ export interface NetworkInfo {
   as_name: string | null
   host_name: string | null
   published: string | null
+  advertised_bandwidth?: number | null
+  observed_bandwidth?: number | null
+  bandwidth_rate?: number | null
+  bandwidth_burst?: number | null
+  consensus_weight?: number | null
+  measured?: boolean | null
+  exit_policy_summary?: { accept?: string[]; reject?: string[] } | null
+  family_size?: number
+  version_status?: string | null
+  recommended_version?: boolean | null
+  overload_since?: number | string | null
+  unreachable_or_addresses?: string[]
+  transports?: string[]
   location: Record<string, string | number | null>
 }
 

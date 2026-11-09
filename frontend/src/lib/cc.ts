@@ -56,19 +56,32 @@ export interface NodeForm {
   control_cookie?: string | null   // Tor's control_auth_cookie as hex
 }
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, public status = 0) { super(message) }
+}
 
 async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  })
+  // a request that hangs must not stall the polling for good
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), 20_000)
+  let res: Response
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: ctrl.signal,
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch (e) {
+    throw new ApiError(ctrl.signal.aborted ? 'The Box did not answer in time.' : 'The Box cannot be reached.', 0)
+  } finally {
+    clearTimeout(timer)
+  }
   let data: any = null
   try { data = await res.json() } catch { /* empty body */ }
-  if (!res.ok) throw new ApiError(data?.error ?? `HTTP ${res.status}`)
+  if (!res.ok) throw new ApiError(data?.error ?? (res.status === 404 ? 'This session has ended.' : `HTTP ${res.status}`), res.status)
   return data as T
 }
 
