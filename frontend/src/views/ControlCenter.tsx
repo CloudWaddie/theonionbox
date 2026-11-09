@@ -4,6 +4,7 @@ import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, LogOut, Pencil, Plu
 import { ApiError, ccApi, type CCNode, type BwSample, type NodeForm } from '@/lib/cc'
 import { formatRate } from '@/lib/format'
 import { Footer, TopBar } from '@/components/shell'
+import { RoleBadges } from '@/components/common'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -98,8 +99,8 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="truncate font-semibold tracking-tight">{title}</h3>
-            {node.mode && <Badge variant="secondary">{node.mode}</Badge>}
           </div>
+          <RoleBadges mode={node.mode} flags={node.flags} className="mt-1.5" />
           <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground" title={address ?? ''}>{address}{node.control === 'proxy' ? ' · via Tor' : ''}</p>
         </div>
         <Badge variant={variant} className="shrink-0">

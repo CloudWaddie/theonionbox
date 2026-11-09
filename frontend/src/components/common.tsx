@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Card,CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 export function Stat({ label, value, hint, icon, className }: { label: string; value: ReactNode; hint?: ReactNode; icon?: ReactNode; className?: string }) {
@@ -41,6 +42,31 @@ export function KeyValues({ rows }: { rows: [string, ReactNode][] }) {
         </div>
       ))}
     </dl>
+  )
+}
+
+type Role = { label: string; hint: string; variant: 'default' | 'success' | 'warning' | 'secondary' }
+
+/** Derive what a node does in the Tor network from its mode and consensus flags. */
+export function nodeRoles(mode?: string | null, flags?: string[] | null): Role[] {
+  if (mode === 'Bridge') return [{ label: 'Bridge', hint: 'Unlisted entry point for censored users', variant: 'warning' }]
+  if (mode === 'Client') return [{ label: 'Client', hint: 'Not relaying traffic for others', variant: 'secondary' }]
+  if (mode !== 'Relay') return []
+  const f = flags ?? []
+  const roles: Role[] = []
+  if (f.includes('Guard')) roles.push({ label: 'Guard', hint: 'Entry node: first hop of client circuits', variant: 'success' })
+  if (f.includes('Exit') && !f.includes('BadExit')) roles.push({ label: 'Exit', hint: 'Exit node: traffic leaves the Tor network here', variant: 'warning' })
+  if (!roles.length) roles.push({ label: 'Middle relay', hint: f.length ? 'Relays traffic between other relays' : 'Relay; flags not assigned yet', variant: 'secondary' })
+  return [{ label: 'Relay', hint: 'Public relay', variant: 'default' }, ...roles]
+}
+
+export function RoleBadges({ mode, flags, className }: { mode?: string | null; flags?: string[] | null; className?: string }) {
+  const roles = nodeRoles(mode, flags)
+  if (!roles.length) return null
+  return (
+    <div className={cn('flex flex-wrap gap-1.5', className)}>
+      {roles.map((r) => <Badge key={r.label} variant={r.variant} title={r.hint}>{r.label}</Badge>)}
+    </div>
   )
 }
 

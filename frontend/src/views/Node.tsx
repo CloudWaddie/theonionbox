@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import type { BridgeInfo, Overview } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
-import { Empty, KeyValues, Panel } from '@/components/common'
+import { Empty, KeyValues, Panel, RoleBadges } from '@/components/common'
 import { BridgePanel } from '@/views/Health'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 
@@ -25,7 +25,7 @@ export function NodeView({ overview, bridge }: { overview: Overview; bridge: Bri
           ['Latest unstable', t.latest_unstable && t.latest_unstable !== t.latest_stable ? t.latest_unstable : null],
           ['PID', t.pid],
           ['User', t.user],
-          ['Mode', t.mode],
+          ['Role', <RoleBadges mode={t.mode} flags={t.flags} />],
           ['Nickname', t.nickname],
           ['Fingerprint', t.fingerprint ? <span className="font-mono text-xs">{t.fingerprint}</span> : null],
           ['Flags', t.flags.length ? <div className="flex flex-wrap gap-1.5">{t.flags.map((f) => <Badge key={f} variant="secondary">{f}</Badge>)}</div> : null],
