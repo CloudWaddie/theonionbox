@@ -1,4 +1,5 @@
 import contextlib
+import gzip
 import html
 import logging
 import pathlib
@@ -161,4 +162,30 @@ class BaseApp:
         root = self._web_root()
         if not (root / 'index.html').exists():
             raise bottle.HTTPError(503)
-        return bottle.static_file('assets/' + filename, root=str(root))
+        res = bottle.static_file('assets/' + filename, root=str(root))
+        # file names carry a content hash: the browser never has to ask again
+        if not isinstance(res, bottle.HTTPError):
+            res.set_header('Cache-Control', 'public, max-age=31536000, immutable')
+            if filename.endswith(('.js', '.css')) and 'gzip' in bottle.request.headers.get('Accept-Encoding', ''):
+                res = self._gzipped(root / 'assets' / filename, res)
+        return res
+
+    _gz_cache: dict = {}
+
+    def _gzipped(self, path, res):
+        # compress once, keep in memory (a handful of files)
+        try:
+            mtime = path.stat().st_mtime
+            hit = self._gz_cache.get(path)
+            if hit is None or hit[0] != mtime:
+                hit = (mtime, gzip.compress(path.read_bytes(), 6))
+                self._gz_cache[path] = hit
+        except OSError:
+            return res
+        out = bottle.HTTPResponse(hit[1], status=200)
+        out.content_type = res.content_type
+        out.set_header('Content-Encoding', 'gzip')
+        out.set_header('Vary', 'Accept-Encoding')
+        out.set_header('Content-Length', str(len(hit[1])))
+        out.set_header('Cache-Control', 'public, max-age=31536000, immutable')
+        return out
