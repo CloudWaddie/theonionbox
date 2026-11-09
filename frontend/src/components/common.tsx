@@ -50,6 +50,7 @@ type Role = { label: string; hint: string; variant: 'default' | 'success' | 'war
 /** Derive what a node does in the Tor network from its mode and consensus flags. */
 export function nodeRoles(mode?: string | null, flags?: string[] | null): Role[] {
   if (mode === 'Bridge') return [{ label: 'Bridge', hint: 'Unlisted entry point for censored users', variant: 'warning' }]
+  if (mode === 'Snowflake') return [{ label: 'Snowflake', hint: 'Snowflake proxy: helps censored users reach Tor', variant: 'default' }]
   if (mode === 'Client') return [{ label: 'Client', hint: 'Not relaying traffic for others', variant: 'secondary' }]
   if (mode !== 'Relay') return []
   const f = flags ?? []

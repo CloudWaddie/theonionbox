@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Loader2, LogOut, Pencil, Plus, Server, ShieldAlert, Trash2, WifiOff } from 'lucide-react'
 import { ApiError, ccApi, type CCNode, type BwSample, type NodeForm } from '@/lib/cc'
-import { formatRate } from '@/lib/format'
+import { formatBytes, formatRate } from '@/lib/format'
 import { Footer, TopBar } from '@/components/shell'
 import { Blur, RoleBadges } from '@/components/common'
 import { Badge } from '@/components/ui/badge'
@@ -84,13 +84,50 @@ function Sparkline({ samples }: { samples: BwSample[] }) {
   )
 }
 
+const COUNTRY_NAMES = typeof Intl !== 'undefined' && 'DisplayNames' in Intl ? new Intl.DisplayNames(undefined, { type: 'region' }) : null
+const countryName = (cc: string) => { try { return COUNTRY_NAMES?.of(cc) ?? cc } catch { return cc } }
+
+function ago(ms: number) {
+  const s = Math.max(0, Math.round((Date.now() - ms) / 1000))
+  return s < 90 ? `${s}s ago` : s < 5400 ? `${Math.round(s / 60)} min ago` : `${Math.round(s / 3600)} h ago`
+}
+
+// stats of a Snowflake proxy, from its -metrics endpoint
+function SnowflakeBody({ node }: { node: CCNode }) {
+  const sf = node.snowflake!
+  const last = sf.history[sf.history.length - 1]
+  const attempts = sf.connections_1h + sf.timeouts_1h
+  return (
+    <>
+      <Sparkline samples={sf.history} />
+      <div className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm tabular-nums">
+        <span className="flex items-center gap-1.5" title="Sent to clients"><ArrowUp className="size-3.5 text-chart-1" />{formatRate(last ? last.w : null)}</span>
+        <span className="flex items-center gap-1.5" title="Received from clients"><ArrowDown className="size-3.5 text-chart-2" />{formatRate(last ? last.r : null)}</span>
+      </div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+        <dt className="text-muted-foreground">Clients, last hour</dt>
+        <dd className="text-right font-mono tabular-nums">{sf.connections_1h}{attempts > 0 && <span className="text-muted-foreground"> · {Math.round((sf.timeouts_1h / attempts) * 100)}% timed out</span>}</dd>
+        <dt className="text-muted-foreground">Traffic, last hour</dt>
+        <dd className="text-right font-mono tabular-nums">{formatBytes(sf.inbound_1h + sf.outbound_1h)}</dd>
+        <dt className="text-muted-foreground">Since proxy start</dt>
+        <dd className="text-right font-mono tabular-nums">{sf.connections} clients · {formatBytes(sf.inbound + sf.outbound)}</dd>
+      </dl>
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {node.health && node.health.status !== 'ok' && <Badge variant="warning" title={node.health.issues.join(', ')}>Check: {node.health.issues.slice(0, 2).join(', ')}</Badge>}
+        {sf.countries.slice(0, 5).map((c) => <Badge key={c.cc} variant="secondary" title={`${countryName(c.cc)}: ${c.n} clients since the proxy started`}>{c.cc === '??' ? 'Unknown' : c.cc} {c.n}</Badge>)}
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">Counters updated {ago(sf.updated)}</p>
+    </>
+  )
+}
+
 function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, onOpen, opening }: {
   node: CCNode; samples: BwSample[]; canMoveLeft: boolean; canMoveRight: boolean
   onMove: (dir: -1 | 1) => void; onEdit: () => void; onOpen: () => void; opening: boolean
 }) {
   const [variant, text] = STATE_BADGE[node.state]
   const last = samples[samples.length - 1]
-  const title = node.label || node.nickname || node.host || 'Tor node'
+  const title = node.label || node.nickname || node.host || (node.control === 'snowflake' ? 'Snowflake proxy' : 'Tor node')
   const address = node.control === 'socket' ? node.host : node.host ? `${node.host}${node.port ? `:${node.port}` : ''}` : 'this machine'
 
   return (
@@ -110,7 +147,9 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
       </div>
 
       <div className="flex-1 px-5">
-        {node.state === 'ok' ? (
+        {node.state === 'ok' && node.snowflake ? (
+          <SnowflakeBody node={node} />
+        ) : node.state === 'ok' ? (
           <>
             <Sparkline samples={samples} />
             <div className="mt-3 grid grid-cols-2 gap-3 font-mono text-sm tabular-nums">
@@ -146,7 +185,7 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
             </>
           )}
         </div>
-        <Button size="sm" variant="outline" onClick={onOpen} disabled={node.state === 'offline' || opening}>{opening && <Loader2 className="animate-spin" />}Details</Button>
+        {node.control !== 'snowflake' && <Button size="sm" variant="outline" onClick={onOpen} disabled={node.state === 'offline' || opening}>{opening && <Loader2 className="animate-spin" />}Details</Button>}
       </div>
     </Card>
   )
@@ -190,7 +229,7 @@ export function ControlCenterView({ version, logout }: { version: string; logout
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">Control Center</h1>
-            <p className="text-sm text-muted-foreground">{nodes.length} node{nodes.length === 1 ? '' : 's'} · relays, bridges and clients in one place</p>
+            <p className="text-sm text-muted-foreground">{nodes.length} node{nodes.length === 1 ? '' : 's'} · relays, bridges, clients and Snowflake proxies in one place</p>
           </div>
           {!readonly && <Button onClick={() => setEditing('new')}><Plus />Add node</Button>}
         </div>
@@ -204,7 +243,7 @@ export function ControlCenterView({ version, logout }: { version: string; logout
           <Card className="flex flex-col items-center gap-3 border-dashed py-16 text-center">
             <Server className="size-8 text-muted-foreground" />
             <h2 className="font-semibold">No nodes yet</h2>
-            <p className="max-w-sm text-sm text-muted-foreground">Add the ControlPort of a relay, bridge or client to start monitoring it.</p>
+            <p className="max-w-sm text-sm text-muted-foreground">Add the ControlPort of a relay, bridge or client, or the metrics port of a Snowflake proxy, to start monitoring it.</p>
             {!readonly && <Button onClick={() => setEditing('new')}><Plus />Add your first node</Button>}
           </Card>
         ) : (
@@ -245,6 +284,7 @@ const CONTROL_HELP = {
   port: 'ControlPort over TCP. Use a private network (VPN, WireGuard, Tailscale, same host): never expose a ControlPort to the internet.',
   socket: 'Path of a local ControlSocket (a node on the same machine / a shared volume).',
   proxy: 'Reach the node through Tor itself, e.g. a ControlPort published as an onion service.',
+  snowflake: 'The metrics port of a Snowflake proxy, started with -metrics -metrics-address 0.0.0.0. Firewall that port so only this Box can reach it, and use -summary-interval 1m for minute-by-minute stats.',
 }
 
 function NodeDialog({ node, onClose, onDone }: { node: CCNode | null; onClose: () => void; onDone: () => void }) {
@@ -264,9 +304,19 @@ function NodeDialog({ node, onClose, onDone }: { node: CCNode | null; onClose: (
   const [test, setTest] = useState<{ ok: boolean; message: string; methods: string[] } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const needsCookie = !!test?.methods.some((m) => m.includes('COOKIE'))
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => { setForm({ ...form, [k]: e.target.value }); setTest(null) }
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const value = e.target.value
+    const next = { ...form, [k]: value }
+    // switching the type: offer that type's usual port
+    if (k === 'control' && (form.port === '9051' || form.port === '9999')) next.port = value === 'snowflake' ? '9999' : '9051'
+    setForm(next); setTest(null)
+  }
+  const isSnowflake = form.control === 'snowflake'
 
-  const payload = (): NodeForm => ({
+  const payload = (): NodeForm => isSnowflake ? {
+    label: form.label, control: form.control, host: form.host, port: form.port,
+    ...(node ? {} : { password: '' }),
+  } : ({
     label: form.label,
     control: form.control,
     host: form.host,
@@ -286,12 +336,12 @@ function NodeDialog({ node, onClose, onDone }: { node: CCNode | null; onClose: (
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{node ? 'Edit node' : 'Add node'}</DialogTitle>
-          <DialogDescription>Relays, bridges and clients are monitored through their Tor ControlPort. Credentials are stored in the Box's configuration file.</DialogDescription>
+          <DialogDescription>Relays, bridges and clients are monitored through their Tor ControlPort, Snowflake proxies through their metrics port. Credentials are stored in the Box's configuration file.</DialogDescription>
         </DialogHeader>
 
         <form className="grid gap-4" onSubmit={(e) => { e.preventDefault(); run(() => (node ? ccApi.edit(node.id, payload()) : ccApi.add(payload())), onDone) }}>
-          <Field id="label" label="Name" hint="Optional. Defaults to the nickname of the node.">
-            <Input id="label" value={form.label} onChange={set('label')} maxLength={64} placeholder="e.g. frankfurt-relay" />
+          <Field id="label" label="Name" hint={isSnowflake ? 'Optional. Defaults to the host.' : 'Optional. Defaults to the nickname of the node.'}>
+            <Input id="label" value={form.label} onChange={set('label')} maxLength={64} placeholder={isSnowflake ? 'e.g. snowflake-racknerd' : 'e.g. frankfurt-relay'} />
           </Field>
 
           <Field id="control" label="Connection" hint={CONTROL_HELP[form.control]}>
@@ -299,18 +349,20 @@ function NodeDialog({ node, onClose, onDone }: { node: CCNode | null; onClose: (
               <option value="port">ControlPort (TCP)</option>
               <option value="proxy">ControlPort via Tor (onion service)</option>
               <option value="socket">ControlSocket (file)</option>
+              <option value="snowflake">Snowflake proxy (metrics port)</option>
             </select>
           </Field>
 
           <div className="grid grid-cols-[1fr_6.5rem] gap-3">
             <Field id="host" label={form.control === 'socket' ? 'Socket path' : 'Host'}>
-              <Input id="host" value={form.host} onChange={set('host')} required placeholder={form.control === 'socket' ? '/var/run/tor/control' : form.control === 'proxy' ? 'abc…xyz.onion' : '10.0.0.5'} autoComplete="off" />
+              <Input id="host" value={form.host} onChange={set('host')} required placeholder={form.control === 'socket' ? '/var/run/tor/control' : form.control === 'proxy' ? 'abc…xyz.onion' : isSnowflake ? '203.0.113.7' : '10.0.0.5'} autoComplete="off" />
             </Field>
             {form.control !== 'socket' && (
               <Field id="port" label="Port"><Input id="port" inputMode="numeric" value={form.port} onChange={set('port')} required /></Field>
             )}
           </div>
 
+          {!isSnowflake && <>
           <Field id="password" label="Control password" hint={node?.has_password && !removePassword ? 'A password is stored. Leave empty to keep it.' : 'The HashedControlPassword of the node. Leave empty for cookie / no authentication.'}>
             <Input id="password" type="password" value={form.password} onChange={set('password')} autoComplete="new-password" placeholder={node?.has_password && !removePassword ? '••••••••' : ''} disabled={removePassword} />
           </Field>
@@ -336,6 +388,7 @@ function NodeDialog({ node, onClose, onDone }: { node: CCNode | null; onClose: (
               <Input id="cookie" value={form.cookie} onChange={set('cookie')} autoComplete="off" maxLength={22} />
             </Field>
           )}
+          </>}
 
           {test && (
             <p className={`rounded-md border px-3 py-2 text-sm ${test.ok ? 'border-success/30 bg-success/10 text-success' : 'border-destructive/30 bg-destructive/10 text-destructive'}`}>

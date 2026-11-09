@@ -4,7 +4,7 @@ export interface CCNode {
   id: string
   is_default: boolean
   label: string | null
-  control: 'port' | 'socket' | 'proxy' | null
+  control: 'port' | 'socket' | 'proxy' | 'snowflake' | null
   host: string | null
   port: string | null
   has_password: boolean
@@ -16,7 +16,7 @@ export interface CCNode {
   nickname?: string
   version?: string
   version_status?: string
-  mode?: 'Client' | 'Relay' | 'Bridge'
+  mode?: 'Client' | 'Relay' | 'Bridge' | 'Snowflake'
   flags?: string[]
   hibernating?: string | null
   fingerprint?: string | null
@@ -25,13 +25,30 @@ export interface CCNode {
   streams?: number
   bw?: BwSample[]
   health?: { status: 'ok' | 'warn' | 'fail'; issues: string[] } | null
+  snowflake?: SnowflakeStats
+}
+
+/** Read from a Snowflake proxy's -metrics endpoint. Bytes; counters since the proxy started. */
+export interface SnowflakeStats {
+  connections: number
+  timeouts: number
+  inbound: number
+  outbound: number
+  connections_1h: number
+  timeouts_1h: number
+  inbound_1h: number
+  outbound_1h: number
+  countries: { cc: string; n: number }[]
+  updated: number
+  observed_s: number
+  history: BwSample[]
 }
 
 export interface CCList { tick: number; readonly: boolean; nodes: CCNode[] }
 
 export interface NodeForm {
   label: string
-  control: 'port' | 'socket' | 'proxy'
+  control: 'port' | 'socket' | 'proxy' | 'snowflake'
   host: string
   port: string
   password?: string | null   // undefined = keep, '' / null = remove

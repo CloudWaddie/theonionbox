@@ -87,6 +87,9 @@ const demoNodes = () => {
     { id: 'aaa', is_default: false, label: 'frankfurt-relay', control: 'port', host: '10.8.0.11', port: '9051', has_password: true, has_cookie: false, has_control_cookie: false, editable: true, state: 'ok', nickname: 'frankfurt', version: '0.4.9.11', version_status: 'recommended', mode: 'Relay', flags: ['Fast', 'Guard', 'Running', 'Stable', 'Valid'], hibernating: null, fingerprint: 'A'.repeat(40), circuits: 312, connections: 87, streams: 540, bw: bw(900_000) },
     { id: 'bbb', is_default: false, label: 'obfs4-bridge', control: 'port', host: '10.8.0.12', port: '9051', has_password: true, has_cookie: false, has_control_cookie: false, editable: true, state: 'ok', nickname: 'bridge1', version: '0.4.9.11', version_status: 'recommended', mode: 'Bridge', flags: ['Running', 'Valid'], hibernating: null, fingerprint: 'B'.repeat(40), circuits: 40, connections: 22, streams: 61, bw: bw(250_000) },
     { id: 'ccc', is_default: false, label: 'old-relay', control: 'proxy', host: 'abcdefghijklmnop.onion', port: '9051', has_password: false, has_cookie: false, has_control_cookie: true, editable: true, state: 'auth', error: 'Authentication failed.' },
+    { id: 'sf1', is_default: false, label: 'snowflake-racknerd', control: 'snowflake', host: '203.0.113.7', port: '9999', has_password: false, has_cookie: false, has_control_cookie: false, editable: true, state: 'ok', mode: 'Snowflake', health: { status: 'ok', issues: [] },
+      snowflake: { connections: 412, timeouts: 37, inbound: 1_840_000_000, outbound: 310_000_000, connections_1h: 23, timeouts_1h: 2, inbound_1h: 96_000_000, outbound_1h: 15_000_000, countries: [{ cc: 'IR', n: 201 }, { cc: 'RU', n: 118 }, { cc: 'CN', n: 44 }, { cc: 'TM', n: 21 }, { cc: 'BY', n: 9 }], updated: Date.now() - 40_000, observed_s: 7200,
+        history: Array.from({ length: 40 }, (_, i) => ({ s: Date.now() - (40 - i) * 60_000, r: 20_000 + 18_000 * Math.abs(Math.sin(i / 4)), w: 4_000 + 3_000 * Math.abs(Math.cos(i / 5)) })) } },
     { id: 'ddd', is_default: false, label: 'amsterdam-relay', control: 'port', host: '10.8.0.14', port: '9051', has_password: true, has_cookie: false, has_control_cookie: false, editable: true, state: 'offline', error: 'Connection refused' },
   ]
 }
@@ -108,7 +111,7 @@ export function installMockApi() {
       if (page === 'cc') return json({ page: 'cc', logout: true, ...common })
       return json({ page: 'dashboard', ...common })
     }
-    if (url.startsWith('api/cc/nodes') && method === 'GET') return json({ tick: Date.now(), readonly: false, nodes: nodes.map((n) => (n.state === 'ok' ? { ...n, bw: n.bw.slice(-2).map((p: any) => ({ ...p, s: Date.now() })) } : n)) })
+    if (url.startsWith('api/cc/nodes') && method === 'GET') return json({ tick: Date.now(), readonly: false, nodes: nodes.map((n) => (n.state === 'ok' ? { ...n, bw: (n.bw ?? []).slice(-2).map((p: any) => ({ ...p, s: Date.now() })) } : n)) })
     if (url === 'api/cc/nodes' && method === 'POST') { nodes.push({ ...demoNodes()[0], id: String(Math.random()), label: body.label, host: body.host, port: body.port }); return json({ id: 'x' }) }
     if (url.startsWith('api/cc/nodes/') && url.endsWith('/open')) return json({ path: '#opened' })
     if (url.startsWith('api/cc/nodes/') && method === 'DELETE') { nodes = nodes.filter((n) => !url.endsWith(n.id)); return json({ id: 'x' }) }

@@ -19,7 +19,7 @@ def validate(section: Section, file=''):
     except KeyError:
         raise ValueError(f"{e}: 'control' definition missing.")
 
-    t = ['port', 'socket', 'proxy']
+    t = ['port', 'socket', 'proxy', 'snowflake']
     if control not in t:
         raise ValueError(f"{e}: Invalid value for 'control'. Use any of {t}.")
 
@@ -30,7 +30,7 @@ def validate(section: Section, file=''):
 
     e = f'{e} / control = {control}'
 
-    if control in ['port', 'proxy'] :
+    if control in ['port', 'proxy', 'snowflake']:
         if host is None:
             raise ValueError(f"{e}: 'host' definition missing.")
         if port is None:

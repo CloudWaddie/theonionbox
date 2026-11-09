@@ -18,13 +18,15 @@ from ..nodes import Manager as NodesManager, Node
 from ..plugin.session import SessionPlugin
 from ..proxy import Proxy as TorProxy
 from ..session import SessionManager
+from .. import snowflake
 from ..utils import AttributedDict
 from ..version import VersionManager
 
 DEFAULT_ID = 'default'
 COOKIE_RE = re.compile(r'^[a-zA-Z0-9+/]{22}$')   # see Tor(1), HidServAuth
 CONTROL_COOKIE_RE = re.compile(r'^[0-9a-fA-F]{64}$')   # the 32 bytes of Tor's control_auth_cookie, as hex
-CONNECTION_TYPES = ('port', 'socket', 'proxy')
+CONNECTION_TYPES = ('port', 'socket', 'proxy', 'snowflake')
+TOR_TYPES = ('port', 'socket', 'proxy')
 
 
 class ValidationError(ValueError):
@@ -105,7 +107,7 @@ def validate_node(data: Dict[str, Any], partial: bool = False) -> Dict[str, Any]
             out[secret] = value or None      # '' clears the value
 
     control = out.get('control')
-    if control in ('port', 'proxy') and 'port' in out and out['port'] is None:
+    if control in ('port', 'proxy', 'snowflake') and 'port' in out and out['port'] is None:
         raise ValidationError(f"'port' is required for connection type '{control}'.")
 
     return out
@@ -131,6 +133,7 @@ class ControlCenter(BaseApp):
         self.connecting: Dict[str, Any] = {}      # api id -> Future
         self.errors: Dict[str, Dict[str, str]] = {}   # api id -> {'kind': 'auth' | 'offline', 'message': ...}
         self.health_cache: Dict[str, Any] = {}        # api id -> (time, summary), the checks ask tor a lot
+        self.snowflakes: Dict[str, snowflake.Monitor] = {}   # api id -> metrics history of a Snowflake proxy
 
         frame = {'valid_status': ['frame'], 'no_session_redirect': self.redirect.path('/')}
 
@@ -266,8 +269,37 @@ class ControlCenter(BaseApp):
         self.health_cache[api_id] = (time.time(), summary)
         return summary
 
+    def _snowflake(self, api_id: str, config) -> snowflake.Monitor:
+        url = snowflake.metrics_url(config.host, config.port)
+        monitor = self.snowflakes.get(api_id)
+        if monitor is None or monitor.url != url:
+            monitor = self.snowflakes[api_id] = snowflake.Monitor(url)
+        if monitor.due():
+            monitor.last_try = time.time()      # don't queue it twice
+            self.pool.submit(monitor.refresh)
+        return monitor
+
+    def _snowflake_card(self, api_id: str, config) -> Dict[str, Any]:
+        card: Dict[str, Any] = {
+            'id': api_id,
+            'is_default': False,
+            'label': getattr(config, 'label', None),
+            'control': 'snowflake',
+            'host': config.host,
+            'port': config.port,
+            'has_password': False,
+            'has_cookie': False,
+            'has_control_cookie': False,
+            'editable': not self.cc.readonly,
+            'mode': 'Snowflake',
+        }
+        card.update(self._snowflake(api_id, config).read())
+        return card
+
     def _card(self, api_id: str, since: Optional[float]) -> Dict[str, Any]:
         config = self._config_of(api_id)
+        if getattr(config, 'control', None) == 'snowflake':
+            return self._snowflake_card(api_id, config)
         node = self._node(api_id)
         is_default = api_id == DEFAULT_ID
 
@@ -420,6 +452,7 @@ class ControlCenter(BaseApp):
         section.tick()
 
         # reconnect with the new settings
+        self.snowflakes.pop(name, None)
         node = self.nodes.get_name(name)
         if node is not None:
             node.disconnect()
@@ -433,6 +466,7 @@ class ControlCenter(BaseApp):
         if self.cc.readonly:
             self._fail(403, 'The ControlCenter configuration file is read-only.')
 
+        self.snowflakes.pop(name, None)
         node = self.nodes.get_name(name)
         if node is not None:
             for s in list(self.sessions):
@@ -476,6 +510,8 @@ class ControlCenter(BaseApp):
             self._fail(400, str(exc))
 
         control, host, port = fields['control'], fields['host'], fields.get('port')
+        if control == 'snowflake':
+            return self._ok(self._test_snowflake(host, port))
         sc = None
         try:
             if control == 'port':
@@ -504,8 +540,25 @@ class ControlCenter(BaseApp):
                 with contextlib.suppress(Exception):
                     sc.shutdown()
 
+    @staticmethod
+    def _test_snowflake(host: str, port: str) -> Dict[str, Any]:
+        url = snowflake.metrics_url(host, port)
+        try:
+            totals = snowflake.parse(snowflake.fetch(url))
+        except Exception as exc:
+            return {'ok': False, 'methods': [],
+                    'message': f'{url} does not answer ({exc}). Is the proxy started with -metrics, and does '
+                               f'its firewall let this Box in?'}
+        if totals is None:
+            return {'ok': False, 'methods': [],
+                    'message': 'This answers, but has no Snowflake counters. Is it the metrics port of a Snowflake proxy?'}
+        return {'ok': True, 'methods': [],
+                'message': f'Snowflake proxy found: {totals.connections} connections so far.'}
+
     def api_open(self, session, name):
         # details = new 'login' session that the dashboard restart route picks up
+        if getattr(self._config_of(name), 'control', None) == 'snowflake':
+            self._fail(400, 'A Snowflake proxy has no dashboard: its stats are on the card.')
         node = self._node(name)
         if node is None:
             self._fail(404, 'Unknown node.')
