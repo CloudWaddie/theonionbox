@@ -70,6 +70,12 @@ export function RoleBadges({ mode, flags, className }: { mode?: string | null; f
   )
 }
 
+/** Blurs sensitive text (e.g. a bridge's IP) until hovered, focused or tapped. */
+export function Blur({ on = true, children, className }: { on?: boolean; children: ReactNode; className?: string }) {
+  if (!on) return <>{children}</>
+  return <span tabIndex={0} className={cn('cursor-default select-none blur-sm transition-[filter] hover:blur-none focus:blur-none', className)}>{children}</span>
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="flex h-32 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">{children}</div>
 }

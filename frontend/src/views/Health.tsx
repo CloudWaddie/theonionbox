@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import type { BridgeInfo, CheckStatus, HealthInfo } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
-import { Empty, KeyValues, Panel } from '@/components/common'
+import { Blur, Empty, KeyValues, Panel } from '@/components/common'
 
 const ICON = {
   ok: <CheckCircle2 className="size-4 text-success" />,
@@ -52,7 +52,7 @@ export function BridgePanel({ bridge }: { bridge: BridgeInfo }) {
           ['Transports', bridge.transports.length ? (
             <div className="space-y-1">
               {bridge.transports.map((t) => (
-                <div key={t.name}><Badge variant="secondary" className="mr-2">{t.name}</Badge><span className="font-mono text-xs">{t.listen ?? 'default address'}</span></div>
+                <div key={t.name}><Badge variant="secondary" className="mr-2">{t.name}</Badge><Blur><span className="font-mono text-xs">{t.listen ?? 'default address'}</span></Blur></div>
               ))}
             </div>
           ) : 'none: this is a plain bridge'],
@@ -60,7 +60,7 @@ export function BridgePanel({ bridge }: { bridge: BridgeInfo }) {
           ['Distribution', bridge.distribution],
           ['Publishing', bridge.publish],
           ['Hashed fingerprint', bridge.hashed_fingerprint ? <span className="font-mono text-xs">{bridge.hashed_fingerprint}</span> : null],
-          ['Bridge line', bridge.bridge_line ? <code className="block select-all break-all rounded bg-muted p-2 text-xs">{bridge.bridge_line}</code> : null],
+          ['Bridge line', bridge.bridge_line ? <Blur className="block"><code className="block select-all break-all rounded bg-muted p-2 text-xs">{bridge.bridge_line}</code></Blur> : null],
         ]} />
       </Panel>
 

@@ -4,7 +4,7 @@ import type { LiveState } from '@/lib/useDashboard'
 import { formatDateTime, formatRate } from '@/lib/format'
 import { Legend, TimeChart, type ChartSeries } from '@/components/charts'
 import { Badge } from '@/components/ui/badge'
-import { Empty, KeyValues, Panel, Stat } from '@/components/common'
+import { Blur, Empty, KeyValues, Panel, Stat } from '@/components/common'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const PERIODS: [string, string][] = [['d3', '3 days'], ['w1', '1 week'], ['m1', '1 month'], ['m3', '3 months'], ['m6', '6 months'], ['y1', '1 year'], ['y5', '5 years']]
@@ -60,9 +60,9 @@ function Details({ network: n }: { network: NetworkInfo }) {
           ['Fingerprint', <span className="font-mono text-xs">{n.fingerprint}</span>],
           ['Platform', n.platform],
           ['Contact', n.contact],
-          ['OR addresses', n.or_addresses.join(' · ')],
-          ['Exit addresses', n.exit_addresses.join(' · ')],
-          ['DIR address', n.dir_address],
+          ['OR addresses', <Blur on={n.type === 'Bridge'}>{n.or_addresses.join(' · ')}</Blur>],
+          ['Exit addresses', <Blur on={n.type === 'Bridge'}>{n.exit_addresses.join(' · ')}</Blur>],
+          ['DIR address', n.dir_address ? <Blur on={n.type === 'Bridge'}>{n.dir_address}</Blur> : null],
           ['First seen', formatDateTime(n.first_seen)],
           ['Last seen', formatDateTime(n.last_seen)],
           ['Last restart', n.last_restarted ? formatDateTime(n.last_restarted) : null],
