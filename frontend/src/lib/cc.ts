@@ -24,6 +24,8 @@ export interface CCNode {
   connections?: number
   streams?: number
   bw?: BwSample[]
+  /** Lifetime traffic in bytes: up = uploaded/written, down = downloaded/read. */
+  lifetime?: { up: number; down: number }
   health?: { status: 'ok' | 'warn' | 'fail'; issues: string[] } | null
   snowflake?: SnowflakeStats
 }

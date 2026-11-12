@@ -136,7 +136,11 @@ function SnowflakeBody({ node }: { node: CCNode }) {
         <dt className="text-muted-foreground">Traffic, last hour</dt>
         <dd className="text-right font-mono tabular-nums">{formatBytes(sf.inbound_1h + sf.outbound_1h)}</dd>
         <dt className="text-muted-foreground">Since proxy start</dt>
-        <dd className="text-right font-mono tabular-nums">{sf.connections} clients · {formatBytes(sf.inbound + sf.outbound)}</dd>
+        <dd className="text-right font-mono tabular-nums">
+          {sf.connections} clients ·{' '}
+          <ArrowUp className="inline size-3 text-chart-1 align-[-1px]" />{formatBytes(sf.outbound)}{' '}
+          <ArrowDown className="inline size-3 text-chart-2 align-[-1px]" />{formatBytes(sf.inbound)}
+        </dd>
       </dl>
       <div className="mt-3 flex flex-wrap gap-1.5">
         {node.health && node.health.status !== 'ok' && <Badge variant="warning" title={node.health.issues.join(', ')}>Check: {node.health.issues.slice(0, 2).join(', ')}</Badge>}
@@ -182,6 +186,14 @@ function NodeCard({ node, samples, canMoveLeft, canMoveRight, onMove, onEdit, on
               <span className="flex items-center gap-1.5"><ArrowUp className="size-3.5 text-chart-1" />{formatRate(last ? Math.abs(last.w) : null)}</span>
               <span className="flex items-center gap-1.5"><ArrowDown className="size-3.5 text-chart-2" />{formatRate(last ? Math.abs(last.r) : null)}</span>
             </div>
+            {(node.lifetime && (node.lifetime.up > 0 || node.lifetime.down > 0)) && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Lifetime:{' '}
+                <span className="font-mono tabular-nums"><ArrowUp className="mr-0.5 inline size-3 text-chart-1 align-[-1px]" />{formatBytes(node.lifetime.up ?? 0)}</span>
+                {' · '}
+                <span className="font-mono tabular-nums"><ArrowDown className="mr-0.5 inline size-3 text-chart-2 align-[-1px]" />{formatBytes(node.lifetime.down ?? 0)}</span>
+              </p>
+            )}
             <div className="mt-3 flex flex-wrap gap-1.5">
               <Badge variant="outline">Tor {node.version}</Badge>
               {node.version_status && node.version_status !== 'recommended' && node.version_status !== 'unknown' && <Badge variant="warning">{node.version_status}</Badge>}
@@ -234,7 +246,7 @@ export function ControlCenterView({ version, logout }: { version: string; logout
   const editable = useMemo(() => nodes.filter((n) => n.editable).map((n) => n.id), [nodes])
 
   const totals = useMemo(() => {
-    let online = 0, up = 0, down = 0, circuits = 0, clients = 0
+    let online = 0, up = 0, down = 0, circuits = 0, clients = 0, lifeUp = 0, lifeDown = 0
     const trouble: string[] = []
     for (const n of nodes) {
       const name = n.label || n.nickname || n.host || 'node'
@@ -243,10 +255,12 @@ export function ControlCenterView({ version, logout }: { version: string; logout
       if (n.state === 'ok' && n.health && n.health.status !== 'ok') trouble.push(`${name}: ${n.health.issues.slice(0, 2).join(', ') || 'needs attention'}`)
       const [w, r] = rateOf(n, history[n.id] ?? [])
       up += w; down += r
+      lifeUp += n.lifetime?.up ?? 0
+      lifeDown += n.lifetime?.down ?? 0
       circuits += n.state === 'ok' ? n.circuits ?? 0 : 0
       clients += n.state === 'ok' ? n.snowflake?.connections_1h ?? 0 : 0
     }
-    return { online, up, down, circuits, clients, trouble }
+    return { online, up, down, circuits, clients, lifeUp, lifeDown, trouble }
   }, [nodes, history])
 
   const shown = useMemo(() => {
@@ -335,8 +349,10 @@ export function ControlCenterView({ version, logout }: { version: string; logout
             <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
               <Stat label="Online" icon={<Server />} value={<>{totals.online}<span className="text-base font-normal text-muted-foreground"> / {nodes.length}</span></>}
                 hint={totals.trouble.length ? <span className="text-warning" title={totals.trouble.join('\n')}><CircleAlert className="mr-1 inline size-3.5 align-[-2px]" />{totals.trouble.length} need{totals.trouble.length === 1 ? 's' : ''} attention</span> : 'all healthy'} />
-              <Stat label="Upload" icon={<ArrowUp />} value={formatRate(totals.up)} hint="all nodes together" />
-              <Stat label="Download" icon={<ArrowDown />} value={formatRate(totals.down)} hint="all nodes together" />
+              <Stat label="Upload" icon={<ArrowUp />} value={formatRate(totals.up)}
+                hint={<span className="flex items-center gap-1"><ArrowUp className="size-3" />{formatBytes(totals.lifeUp)}<span className="text-muted-foreground">lifetime</span></span>} />
+              <Stat label="Download" icon={<ArrowDown />} value={formatRate(totals.down)}
+                hint={<span className="flex items-center gap-1"><ArrowDown className="size-3" />{formatBytes(totals.lifeDown)}<span className="text-muted-foreground">lifetime</span></span>} />
               <Stat label="Circuits" icon={<Waypoints />} value={totals.circuits.toLocaleString()} hint={totals.clients ? `${totals.clients.toLocaleString()} Snowflake clients last hour` : 'across all Tor nodes'} />
             </div>
             {shown.length === 0 ? (

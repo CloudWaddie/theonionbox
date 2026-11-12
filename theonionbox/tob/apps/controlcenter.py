@@ -294,6 +294,9 @@ class ControlCenter(BaseApp):
             'mode': 'Snowflake',
         }
         card.update(self._snowflake(api_id, config).read())
+        # the proxy's own counters are lifetime values already (since its start)
+        sf = card.get('snowflake') or {}
+        card['lifetime'] = {'up': sf.get('outbound') or 0, 'down': sf.get('inbound') or 0}
         return card
 
     def _card(self, api_id: str, since: Optional[float]) -> Dict[str, Any]:
@@ -370,6 +373,9 @@ class ControlCenter(BaseApp):
                 'streams': node.streams.count,
                 'bw': list(samples or []),
             })
+            with contextlib.suppress(Exception):
+                if node.bandwidth is not None:
+                    card['lifetime'] = node.bandwidth.lifetime()
             with contextlib.suppress(Exception):
                 card['health'] = self._health(api_id, node, tor)
         except Exception as exc:

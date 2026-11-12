@@ -150,6 +150,9 @@ class Manager(object):
         self.bandwidth_total_read = 0
         self.bandwidth_total_written = 0
 
+        # cache for the lifetime totals: the sqlite sums are not for free
+        self._lifetime_cache = None
+
         # to ensure thread resistance
         self.live_Lock = RLock()
 
@@ -363,6 +366,45 @@ class Manager(object):
 
         self.bandwidth_total_read = traffic_read
         self.bandwidth_total_written = traffic_written
+
+    def lifetime(self) -> Dict[str, int]:
+
+        # The lifetime traffic of this node: the best answer of
+        # - the data the Box persisted so far (this survives a restart of the Box), and
+        # - Tor's own counter (valid since the start of the Tor process).
+        # Both may miss some traffic (the Box was not watching / Tor restarted), so we take the max.
+
+        if self.persistor is not None and self.persistor.fpid is not None:
+
+            cached = self._lifetime_cache
+            if cached is None or time() - cached[0] > 60:
+                conn = None
+                try:
+                    conn = self.persistor.open_connection()
+                    cur = conn.cursor()
+                    # 'read' is stored negative (it's the download), 'write' positive (the upload)
+                    cur.execute("SELECT SUM(read) as r, SUM(write) as w FROM bandwidth"
+                                " WHERE fp = ? AND interval = '1m'",
+                                (self.persistor.fpid,))
+                    row = cur.fetchone()
+                    cached = (time(), {'down': -(row['r'] or 0), 'up': row['w'] or 0})
+                    self._lifetime_cache = cached
+                except Exception:
+                    cached = (time(), {'down': 0, 'up': 0})
+                    self._lifetime_cache = cached
+                finally:
+                    if conn is not None:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
+
+            persisted = cached[1]
+        else:
+            persisted = {'down': 0, 'up': 0}
+
+        return {'down': max(persisted['down'], int(self.bandwidth_total_read)),
+                'up': max(persisted['up'], int(self.bandwidth_total_written))}
 
     # def get_persistor_path(self):
     #     if self.persistor is not None:
